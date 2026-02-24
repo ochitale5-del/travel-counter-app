@@ -16,9 +16,6 @@ RUN npm install --production --no-audit --no-fund
 # copy app
 COPY . .
 
-# data dir should be mounted from host
-VOLUME ["/usr/src/app/data"]
-
 EXPOSE 3000
 
 
