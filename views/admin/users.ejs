@@ -1,0 +1,53 @@
+<%- include('../partials/header', { title: 'Admin - Users' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">Users</h1>
+<p><a href="/admin/users/new" class="btn">Create New User</a></p>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% users.forEach(function(u) { %>
+      <tr>
+        <td><%= u.id %></td>
+        <td><%= u.name %></td>
+        <td><%= u.username %></td>
+        <td><%= u.role %></td>
+        <td><%= (u.active === 1 || u.active === '1') ? '<span class="badge success">Active</span>' : '<span class="badge" style="background:#64748b;color:#fff;">Inactive</span>' %></td>
+        <td><%= u.created_at %></td>
+        <td>
+          <% if (u.active === 1 || u.active === '1') { %>
+            <form action="/admin/users/<%= u.id %>/reset-password" method="post" style="display:inline-block; margin-right:0.5rem;">
+              <input type="password" name="password" placeholder="New password" required style="display:inline-block; width:160px;" />
+              <button class="btn btn-sm" type="submit">Reset</button>
+            </form>
+            <form action="/admin/users/<%= u.id %>/delete" method="post" style="display:inline-block;" onsubmit="return confirm('Mark user <%= u.username %> as inactive?')">
+              <button class="btn btn-sm" type="submit" style="background:#ef4444; color:#fff;">Deactivate</button>
+            </form>
+          <% } else { %>
+            <form action="/admin/users/<%= u.id %>/restore" method="post" style="display:inline-block;">
+              <button class="btn btn-sm" type="submit" style="background:#10b981; color:#000;">Restore</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

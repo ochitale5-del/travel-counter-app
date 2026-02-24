@@ -1,0 +1,144 @@
+<%- include('../partials/header', { title: 'New Parcel' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">New Parcel Booking</h1>
+
+<form method="post" action="/parcels/new">
+  <div class="card">
+    <h2>Sender</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="sender_name" required>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="sender_phone" required>
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label>Address</label>
+        <textarea name="sender_address" rows="2"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Receiver</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="receiver_name" required>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="receiver_phone" required>
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label>Address</label>
+        <textarea name="receiver_address" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Delivery address</label>
+        <textarea name="delivery_address" rows="2" placeholder="Address for parcel delivery (optional)"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Delivery contact number</label>
+        <input type="text" name="delivery_contact" placeholder="10-digit mobile (optional)">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Parcel details</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Destination</label>
+        <input type="text" name="destination" required>
+      </div>
+      <div class="form-group">
+        <label>Number of boxes</label>
+        <input type="number" name="num_boxes" min="1" value="1" required>
+      </div>
+      <div class="form-group">
+        <label>Price per box (₹)</label>
+        <input type="number" name="price_per_box" step="0.01" min="0" required>
+      </div>
+      <div class="form-group">
+        <label>Loading charges (₹)</label>
+        <input type="number" name="loading_charges" step="0.01" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label>Unloading charges (₹)</label>
+        <input type="number" name="unloading_charges" step="0.01" min="0" value="0">
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <div class="text-muted">
+          Rate fare (auto from boxes & charges): ₹<span id="parcel_rate">0.00</span><br>
+          Commission (auto): ₹<span id="parcel_commission">0.00</span>
+        </div>
+      </div>
+      <style>
+      input[type=number]::-webkit-outer-spin-button,
+      input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type=number] { -moz-appearance: textfield; }
+      </style>
+      <div class="form-group">
+        <label>Net fare (₹) – pay to operator</label>
+        <input type="number" name="net_fare" id="parcel_net_fare" step="0.01" min="0" placeholder="Enter amount or leave blank">
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn">Create parcel (PNR auto-generated)</button>
+</form>
+<script>
+(function() {
+  var boxes = document.querySelector('input[name="num_boxes"]');
+  var price = document.querySelector('input[name="price_per_box"]');
+  var loading = document.querySelector('input[name="loading_charges"]');
+  var unloading = document.querySelector('input[name="unloading_charges"]');
+  var netInput = document.getElementById('parcel_net_fare');
+  var rateSpan = document.getElementById('parcel_rate');
+  var commSpan = document.getElementById('parcel_commission');
+
+  function recalc() {
+    if (!boxes || !price || !loading || !unloading || !rateSpan || !commSpan || !netInput) return;
+    var b = parseInt(boxes.value, 10) || 0;
+    var p = parseFloat(price.value) || 0;
+    var l = parseFloat(loading.value) || 0;
+    var u = parseFloat(unloading.value) || 0;
+    var rate = b * p + l + u;
+    var netRaw = (netInput.value || '').replace(/[^0-9.]/g, '');
+    var net = parseFloat(netRaw);
+    if (!isFinite(net)) {
+      commSpan.textContent = '';
+    } else {
+      if (net > rate) {
+        commSpan.textContent = 'Invalid';
+      } else {
+        var comm = rate - net;
+        commSpan.textContent = comm.toFixed(2);
+      }
+    }
+    rateSpan.textContent = rate.toFixed(2);
+  }
+
+  [boxes, price, loading, unloading, netInput].forEach(function(el) {
+    if (!el) return;
+    el.addEventListener('input', recalc);
+  });
+  netInput.addEventListener('blur', function(){ var v = parseFloat((this.value||'').replace(/[^0-9.]/g, '')); if (isFinite(v)) this.value = v.toFixed(2); });
+  var form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e){
+      var rate = parseFloat(document.getElementById('parcel_rate').textContent) || 0;
+      var netV = parseFloat((netInput.value||'').replace(/[^0-9.]/g, ''));
+      if (isFinite(netV) && netV > rate) { e.preventDefault(); alert('Net fare cannot be greater than rate fare'); }
+    });
+  }
+
+  recalc();
+})();
+</script>
+<%- include('../partials/footer') %>

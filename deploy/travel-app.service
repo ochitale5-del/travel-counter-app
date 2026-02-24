@@ -1,0 +1,15 @@
+[Unit]
+Description=Travel Counter App (docker-compose)
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/travel-counter-app # change to your deploy path
+ExecStart=/usr/bin/docker-compose up -d --build
+ExecStop=/usr/bin/docker-compose down
+TimeoutStartSec=600
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target

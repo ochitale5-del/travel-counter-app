@@ -1,0 +1,61 @@
+<%- include('../partials/header', { title: 'Parcel Details' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1>Parcel <%= parcel.pnr %></h1>
+<div class="card">
+  <h2>Sender</h2>
+  <p><strong><%= parcel.sender_name %></strong><br><span class="text-muted"><%= parcel.sender_phone %></span></p>
+  <h2>Receiver</h2>
+  <p><strong><%= parcel.receiver_name %></strong><br><span class="text-muted"><%= parcel.receiver_phone %></span></p>
+  <h2>Details</h2>
+  <p>Destination: <%= parcel.destination %><br>
+  No. of parcels: <%= parcel.num_boxes %><br>
+  LR number: <%= parcel.lr_number || 'N/A' %><br>
+  Bus: <%= parcel.bus_number || 'N/A' %> (<%= parcel.bus_assigned || 'N/A' %>)<br>
+  Driver: <%= parcel.driver_name || 'N/A' %> (<%= parcel.driver_phone || 'N/A' %>)<br>
+  Delivery address: <%= parcel.delivery_address || 'N/A' %><br>
+  Status: <%= parcel.status == 2 ? 'Dispatched' : 'Booked' %>
+  </p>
+  <div style="display:flex; gap:0.5rem;">
+    <button class="btn" onclick="notifyParcel('<%= parcel.sender_phone %>', '<%= parcel.pnr %>', '<%= parcel.destination %>', '<%= parcel.created_at %>', '<%= parcel.num_boxes %>', '<%= parcel.lr_number %>', '<%= parcel.bus_number %>', '<%= parcel.bus_assigned %>', '<%= parcel.driver_phone %>', '<%= parcel.delivery_address %>', '<%= parcel.status %>')">Notify Sender</button>
+    <button class="btn" onclick="notifyParcel('<%= parcel.receiver_phone %>', '<%= parcel.pnr %>', '<%= parcel.destination %>', '<%= parcel.created_at %>', '<%= parcel.num_boxes %>', '<%= parcel.lr_number %>', '<%= parcel.bus_number %>', '<%= parcel.bus_assigned %>', '<%= parcel.driver_phone %>', '<%= parcel.delivery_address %>', '<%= parcel.status %>')">Notify Receiver</button>
+    <a class="btn btn-ghost" href="/parcels/<%= parcel.id %>/part-b" target="_blank">Print Part B</a>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+  <h3>Delivery details</h3>
+  <form method="post" action="/parcels/<%= parcel.id %>/update-delivery">
+    <div class="form-row">
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Delivery address</label>
+        <textarea name="delivery_address" rows="3"><%= parcel.delivery_address || '' %></textarea>
+      </div>
+      <div class="form-group">
+        <label>Delivery contact number</label>
+        <input type="text" name="delivery_contact" value="<%= parcel.delivery_contact || '' %>" placeholder="10-digit mobile (optional)">
+      </div>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <button class="btn" type="submit">Update Delivery</button>
+      <a class="btn btn-ghost" href="/parcels">Back</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function fmtPhone(p){ p = (p||'').replace(/\D/g,''); if (p.length===10) p='91'+p; return p; }
+function notifyParcel(phone, pnr, dest, date, numBoxes, lr, busNo, travelNum, driverPhone, deliveryAddr, status) {
+  if (!phone) return alert('No phone provided');
+  var statusText = (parseInt(status,10) === 2) ? 'Dispatched' : 'Booked';
+  var msg = `Hey, great news — your parcel is ${statusText.toLowerCase()} now. Relax, we will deliver it for you and update you soon.\n\n` +
+    `PNR: ${pnr}\nStatus: ${statusText}\nDestination: ${dest}\nDate: ${date}\nNo. of parcels: ${numBoxes}\nLR number: ${lr || 'N/A'}\nBus no: ${busNo || 'N/A'}\nTravel: ${travelNum || 'N/A'}\nDriver: ${driverPhone || 'N/A'}\nDelivery address: ${deliveryAddr || 'N/A'}`;
+  var p = fmtPhone(phone);
+  if (!p) return alert('Invalid phone number');
+  var url = 'https://wa.me/' + encodeURIComponent(p) + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+</script>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,28 @@
+{
+  "name": "travel-counter-app",
+  "version": "1.0.0",
+  "description": "Travel counter management for Mumbai travel agency",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node db/seed.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.6.2",
+    "connect-sqlite3": "^0.9.16",
+    "dotenv": "^16.4.5",
+    "ejs": "^4.0.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^8.0.1",
+    "pdfkit": "^0.15.0"
+  }
+}

@@ -1,0 +1,74 @@
+<%- include('../partials/header', { title: 'Operator Settlements' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">Operator Settlement Tracker</h1>
+
+<div class="card">
+  <h2>Summary by operator</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Operator</th>
+        <th>Pending (₹)</th>
+        <th>Settled (₹)</th>
+        <th>Total (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% byOperator.forEach(function(o) { %>
+      <tr>
+        <td><%= o.operator_name %></td>
+        <td><strong>₹<%= Number(o.pending).toFixed(2) %></strong></td>
+        <td>₹<%= Number(o.settled_total).toFixed(2) %></td>
+        <td>₹<%= Number(o.total).toFixed(2) %></td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% if (byOperator.length === 0) { %>
+  <p class="text-muted">No operator settlements.</p>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Breakdown (all entries)</h2>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Operator</th>
+        <th>Type</th>
+        <th>Booking ID</th>
+        <th>Amount (₹)</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% details.forEach(function(d) { %>
+      <tr>
+        <td><%= d.operator_name %></td>
+        <td><%= d.booking_type %></td>
+        <td><%= d.booking_id %></td>
+        <td>₹<%= Number(d.amount).toFixed(2) %></td>
+        <td><%= d.settled ? '<span class="badge success">Settled</span>' : '<span class="badge warning">Pending</span>' %></td>
+        <td><%= formatIST(d.settled_at || d.created_at) %></td>
+        <td>
+          <% if (!d.settled) { %>
+          <form action="/operators/<%= d.id %>/settle" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm">Mark settled</button>
+          </form>
+          <% } %>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+  <% if (details.length === 0) { %>
+  <p class="text-muted">No entries.</p>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

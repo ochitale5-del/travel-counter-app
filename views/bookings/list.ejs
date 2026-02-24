@@ -1,0 +1,130 @@
+<%- include('../partials/header', { title: 'Passenger Bookings' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">Passenger Bookings</h1>
+<p><a href="/bookings/new" class="btn">New Booking</a></p>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>PNR</th>
+        <th>Customer</th>
+        <th>From → To</th>
+        <th>Date</th>
+        <th>Seat</th>
+        <th>Operator</th>
+        <th>Departure</th>
+        <th>Rate fare</th>
+        <th>Net fare</th>
+        <th>Commission</th>
+        <th>Created by</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% bookings.forEach(function(b) { %>
+      <tr>
+        <td><%= b.pnr %></td>
+        <td><%= b.customer_name %><br><span class="text-muted"><%= b.customer_phone %></span></td>
+        <td><%= b.from_place %> → <%= b.destination %></td>
+        <td><%= b.travel_date %></td>
+        <td><%= b.seat_number %></td>
+        <td><%= b.bus_operator %></td>
+        <td><%= time12(b.departure_time) %></td>
+        <td>₹<%= Number(b.total_fare).toFixed(2) %></td>
+        <td>₹<%= Number(b.net_fare || b.total_fare).toFixed(2) %></td>
+        <td>₹<%= Number(b.commission).toFixed(2) %></td>
+        <td><%= b.created_by_name || '—' %></td>
+        <td>
+          <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank">Part A</a>
+          <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
+          <button type="button" class="btn btn-sm" onclick="notifyBooking('<%= (b.customer_phone||'') %>', '<%= (b.pnr||'') %>', '<%= (b.from_place||'') %>', '<%= (b.destination||'') %>', '<%= (b.travel_date||'') %>', '<%= (b.departure_time||'') %>', '<%= (b.seat_number||'') %>', '<%= (b.bus_operator||'') %>', '<%= (b.boarding_point||'') %>')">Notify on WhatsApp</button>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+</div>
+  <script>
+  function pad(n){return String(n).padStart(2,'0');}
+  function to12(h,m){ var period = h>=12 ? 'PM':'AM'; var hh = h%12; if(hh===0) hh=12; return hh+':'+pad(m)+' '+period; }
+  function notifyBooking(phone, pnr, src, dest, date, departure, seat, operator, boarding) {
+    if (!phone) return alert('No phone number');
+    var p = (phone||'').replace(/\D/g,'');
+    if (p.length === 10) p = '91' + p;
+    if (p.length === 0) return alert('Invalid phone');
+    var depParts = (departure||'').split(':');
+    var repText = '';
+    if (depParts.length>=2) {
+      var h = parseInt(depParts[0],10)||0; var m = parseInt(depParts[1],10)||0;
+      var total = h*60 + m - 15;
+      if (total < 0) total += 24*60;
+      var rh = Math.floor(total/60); var rm = total%60;
+      repText = to12(rh, rm);
+    }
+    var seatsCount = 1;
+    try { seatsCount = (seat||'').toString().split(/[,;\\/ ]+/).filter(Boolean).length || 1; } catch(e){}
+    var msg = 'Good news — your booking is confirmed!\n\n' +
+      'PNR: ' + (pnr || '') + '\n' +
+      'From: ' + src + '\n' +
+      'To: ' + dest + '\n' +
+      'Date: ' + date + '\n' +
+      'Departure: ' + (departure ? departure : 'TBD') + '\n' +
+      'Reporting time: ' + (repText || '15 minutes before') + '\n' +
+      'No. of seats: ' + seatsCount + '\n' +
+      'Seat(s): ' + (seat || 'N/A') + '\n' +
+      'Operator: ' + (operator || 'N/A') + '\n' +
+      'Boarding point: ' + (boarding || 'N/A') + '\n\n' +
+      'Relax — arrive at the reporting point a little early and we will take care of the rest. Have a pleasant journey!';
+    var url = 'https://wa.me/' + encodeURIComponent(p) + '?text=' + encodeURIComponent(msg);
+    window.open(url, '_blank');
+  }
+  </script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var highlightPnr = params.get('pnr');
+    if (!highlightPnr) return;
+    var rows = document.querySelectorAll('table tbody tr');
+    for (var i=0;i<rows.length;i++){
+      var r = rows[i];
+      var pnr = (r.children[0] && r.children[0].innerText) ? r.children[0].innerText.trim() : '';
+      if (pnr === highlightPnr) {
+        r.style.outline = '3px solid #ffd54f';
+        r.scrollIntoView({behavior:'smooth', block:'center'});
+        var dep = (r.children[6] && r.children[6].innerText) ? r.children[6].innerText.trim() : '';
+        var seat = (r.children[4] && r.children[4].innerText) ? r.children[4].innerText.trim() : '';
+        var operator = (r.children[5] && r.children[5].innerText) ? r.children[5].innerText.trim() : '';
+        // modal
+        var m = document.createElement('div');
+        m.style.position='fixed'; m.style.inset=0; m.style.background='rgba(0,0,0,0.6)'; m.style.display='flex'; m.style.alignItems='center'; m.style.justifyContent='center'; m.style.zIndex=200;
+        m.innerHTML = '<div class="card" style="min-width:300px; margin:1rem;">' +
+          '<h3>Booking created: ' + highlightPnr + '</h3>' +
+          '<p>' + (r.children[2]?.innerText||'') + '<br>' + (r.children[3]?.innerText||'') + '<br>Seat: ' + seat + '</p>' +
+          '<div style="display:flex; gap:0.5rem;">' +
+          '<button class="btn" id="_notify_booking">Notify on WhatsApp</button>' +
+          '<a class="btn btn-ghost" href="/bookings/new?pnr=' + encodeURIComponent(highlightPnr) + '">New booking (keep PNR)</a>' +
+          '<button class="btn btn-ghost" id="_notify_close">Close</button>' +
+          '</div></div>';
+        document.body.appendChild(m);
+        document.getElementById('_notify_close').addEventListener('click', function(){ document.body.removeChild(m); });
+        document.getElementById('_notify_booking').addEventListener('click', function(){
+          var phone = (r.children[1]?.querySelector('.text-muted')?.innerText||'');
+          var fromTo = (r.children[2]?.innerText||'').split('→');
+          var src = (fromTo[0]||'').trim();
+          var dest = (fromTo[1]||'').trim();
+          var date = (r.children[3]?.innerText||'').trim();
+          notifyBooking(phone, highlightPnr, src, dest, date, dep, seat, operator, '');
+        });
+        break;
+      }
+    }
+  } catch(e){}
+});
+</script>
+  <%- include('../partials/footer') %>

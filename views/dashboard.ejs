@@ -1,0 +1,131 @@
+<%- include('partials/header', { title: 'Dashboard' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">Live Dashboard — <%= today %></h1>
+
+<div class="grid2">
+  <div class="card">
+    <h2>Revenue today</h2>
+    <p style="font-size:1.5rem; font-weight:700;">₹<%= Number(revenueToday).toFixed(2) %></p>
+    <p class="text-muted">Commission: ₹<%= Number(commissionToday).toFixed(2) %></p>
+  </div>
+  <div class="card">
+    <h2>Pending operator settlements</h2>
+    <% if (pendingSettlements.length === 0) { %>
+    <p class="text-muted">None</p>
+    <% } else { %>
+    <ul style="list-style:none;">
+      <% pendingSettlements.forEach(function(s) { %>
+      <li><%= s.operator_name %>: ₹<%= Number(s.total).toFixed(2) %></li>
+      <% }); %>
+    </ul>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Today's departure schedule (boarding status)</h2>
+  <% if (schedule.length === 0) { %>
+  <p class="text-muted">No departures today.</p>
+  <% } else { %>
+  <table>
+    <thead>
+      <tr>
+        <th>Operator</th>
+        <th>Departure</th>
+        <th>Seats</th>
+        <th>Pax</th>
+        <th>Fare total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% schedule.forEach(function(s) { %>
+      <tr>
+        <td><%= s.bus_operator %></td>
+        <td><%= time12(s.departure_time) %></td>
+        <td><%= s.seats %></td>
+        <td><%= s.pax %></td>
+        <td>₹<%= Number(s.fare_total).toFixed(2) %></td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Today's passenger bookings</h2>
+  <% if (passengerBookings.length === 0) { %>
+  <p class="text-muted">No bookings today.</p>
+  <% } else { %>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>PNR</th>
+        <th>Customer</th>
+        <th>From → To</th>
+        <th>Date</th>
+        <th>Seat</th>
+        <th>Operator</th>
+        <th>Fare</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% passengerBookings.forEach(function(b) { %>
+      <tr>
+        <td><%= b.pnr %></td>
+        <td><%= b.customer_name %><br><span class="text-muted"><%= b.customer_phone %></span></td>
+        <td><%= b.from_place %> → <%= b.destination %></td>
+        <td><%= b.travel_date %></td>
+        <td><%= b.seat_number %></td>
+        <td><%= b.bus_operator %></td>
+        <td>₹<%= Number(b.total_fare).toFixed(2) %></td>
+        <td>
+          <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank">Part A</a>
+          <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Today's parcels</h2>
+  <% if (parcelBookings.length === 0) { %>
+  <p class="text-muted">No parcels today.</p>
+  <% } else { %>
+  <table>
+    <thead>
+      <tr>
+        <th>PNR</th>
+        <th>Sender / Receiver</th>
+        <th>Destination</th>
+        <th>Boxes</th>
+        <th>Bus</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% parcelBookings.forEach(function(p) { %>
+      <tr>
+        <td><%= p.pnr %></td>
+        <td><%= p.sender_name %> → <%= p.receiver_name %></td>
+        <td><%= p.destination %></td>
+        <td><%= p.num_boxes %></td>
+        <td><%= p.bus_assigned || '—' %><% if (p.bus_departure_time) { %><br><span class="text-muted"><%= time12(p.bus_departure_time) %></span><% } %></td>
+        <td>
+          <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Part B</a>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

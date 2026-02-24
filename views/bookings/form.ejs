@@ -1,0 +1,209 @@
+<%- include('../partials/header', { title: 'New Passenger Booking' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">New Passenger Booking</h1>
+
+<style>
+/* hide spin buttons on number inputs */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+</style>
+<form method="post" action="/bookings/new" id="booking-form">
+  <% if (pnr) { %>
+  <div class="card">
+    <h2>PNR</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>PNR (preset)</label>
+        <input type="text" name="pnr" value="<%= pnr %>" readonly>
+        <div class="text-muted">Using provided PNR. You can keep this for quick repeat bookings.</div>
+      </div>
+    </div>
+  </div>
+  <% } %>
+  <div class="card">
+    <h2>Customer</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone (for auto-fill)</label>
+        <input type="text" name="customer_phone" id="customer_phone" placeholder="10-digit mobile" maxlength="15">
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="customer_name" id="customer_name" required>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="customer_email" id="customer_email">
+      </div>
+      <div class="form-group">
+        <label>Age</label>
+        <input type="number" name="customer_age" id="customer_age" min="1" max="120">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Journey</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>From</label>
+        <input type="text" name="from_place" required>
+      </div>
+      <div class="form-group">
+        <label>Destination</label>
+        <input type="text" name="destination" required>
+      </div>
+      <div class="form-group">
+        <label>Boarding point (landmark)</label>
+        <input type="text" name="boarding_point" id="boarding_point" placeholder="e.g., near Big Bazaar, next to petrol pump">
+        <div class="text-muted">Enter a rough landmark/address where the customer should wait.</div>
+      </div>
+      <div class="form-group">
+        <label>Travel date</label>
+        <input type="date" name="travel_date" required>
+      </div>
+      <div class="form-group">
+        <label>Seat number</label>
+        <input type="text" name="seat_number" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Bus operator</label>
+        <input type="text" name="bus_operator" id="bus_operator" list="operators-list" required>
+        <datalist id="operators-list">
+          <% (operators || []).forEach(function(op) { %>
+          <option value="<%= op %>">
+          <% }); %>
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label>Departure time</label>
+        <div class="form-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <select id="dep_hour">
+            <% for (var h = 1; h <= 12; h++) { %>
+            <option value="<%= h %>"><%= h %></option>
+            <% } %>
+          </select>
+          <select id="dep_minute">
+            <% for (var m = 0; m < 60; m += 5) { var mm = m.toString().padStart(2, '0'); %>
+            <option value="<%= mm %>"><%= mm %></option>
+            <% } %>
+          </select>
+          <select id="dep_period">
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+        </div>
+        <input type="hidden" name="departure_time" id="departure_time" required>
+        <div class="text-muted">Select time in 12-hour format; it will be stored internally and shown as AM/PM.</div>
+      </div>
+      <div class="form-group">
+        <label>Rate fare (₹) – amount collected</label>
+        <input type="number" name="rate_fare" id="rate_fare" step="0.01" min="0" required>
+      </div>
+      <div class="form-group">
+        <label>Net fare (₹) – pay to operator</label>
+        <input type="number" name="net_fare" id="net_fare" step="0.01" min="0" placeholder="Enter amount or leave blank">
+        <div class="text-muted">Commission (auto): ₹<span id="commission_value">0.00</span></div>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn">Create booking (PNR auto-generated)</button>
+</form>
+
+<script>
+(function() {
+  var phone = document.getElementById('customer_phone');
+  if (phone) {
+    phone.addEventListener('blur', function() {
+      var q = (this.value || '').replace(/\D/g, '');
+      if (q.length < 10) return;
+      fetch('/customers/by-phone/' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(c) {
+          if (c) {
+            document.getElementById('customer_name').value = c.name || '';
+            document.getElementById('customer_email').value = c.email || '';
+            document.getElementById('customer_age').value = c.age || '';
+          }
+        })
+        .catch(function() {});
+    });
+  }
+
+  var rateInput = document.getElementById('rate_fare');
+  var netInput = document.getElementById('net_fare');
+  var commissionSpan = document.getElementById('commission_value');
+
+  function updateCommission() {
+    if (!rateInput || !netInput || !commissionSpan) return;
+    var rate = parseFloat(rateInput.value) || 0;
+    var netRaw = (netInput.value || '').replace(/[^0-9.]/g, '');
+    var net = parseFloat(netRaw);
+    if (!isFinite(net)) {
+      commissionSpan.textContent = '';
+      return;
+    }
+    if (net > rate) {
+      commissionSpan.textContent = 'Invalid';
+      return;
+    }
+    var comm = rate - net;
+    commissionSpan.textContent = comm.toFixed(2);
+  }
+
+  if (rateInput && netInput) {
+    rateInput.addEventListener('input', function() {
+      updateCommission();
+    });
+    netInput.addEventListener('input', updateCommission);
+    netInput.addEventListener('blur', function() {
+      var v = parseFloat((this.value||'').replace(/[^0-9.]/g, ''));
+      if (isFinite(v)) this.value = v.toFixed(2);
+    });
+    // Validate on submit: net cannot be greater than rate
+    var form = document.getElementById('booking-form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        var rate = parseFloat(rateInput.value) || 0;
+        var netV = parseFloat((netInput.value||'').replace(/[^0-9.]/g, ''));
+        if (isFinite(netV) && netV > rate) {
+          e.preventDefault();
+          alert('Net fare cannot be greater than rate fare');
+        }
+      });
+    }
+  }
+
+  // Departure time (12-hour picker -> hidden 24h string)
+  var depHour = document.getElementById('dep_hour');
+  var depMinute = document.getElementById('dep_minute');
+  var depPeriod = document.getElementById('dep_period');
+  var depHidden = document.getElementById('departure_time');
+
+  function updateDeparture() {
+    if (!depHour || !depMinute || !depPeriod || !depHidden) return;
+    var h = parseInt(depHour.value, 10) || 0;
+    var m = depMinute.value || '00';
+    var period = depPeriod.value === 'PM' ? 'PM' : 'AM';
+    if (h < 1 || h > 12) h = 12;
+    var hour24 = h % 12;
+    if (period === 'PM') hour24 += 12;
+    var hh = hour24.toString().padStart(2, '0');
+    depHidden.value = hh + ':' + m;
+  }
+
+  [depHour, depMinute, depPeriod].forEach(function(el) {
+    if (!el) return;
+    el.addEventListener('change', updateDeparture);
+    el.addEventListener('input', updateDeparture);
+  });
+  updateDeparture();
+})();
+</script>
+<%- include('../partials/footer') %>

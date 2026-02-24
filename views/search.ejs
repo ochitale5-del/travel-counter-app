@@ -1,0 +1,94 @@
+<%- include('./partials/header', { title: 'Search' }) %>
+
+<h1 style="margin-bottom:1rem;">Search</h1>
+
+<form method="get" action="/search" style="display:flex; gap:1rem; margin-bottom:2rem;">
+  <input type="text" name="q" value="<%= q %>" placeholder="Search by PNR, phone, email or name..." style="flex:1;">
+  <button type="submit" class="btn">Search</button>
+</form>
+
+<% if (q) { %>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="color:var(--gold); margin-bottom:1rem;">Passenger Bookings (<%= passengers.length %>)</h2>
+    <% if (passengers.length === 0) { %>
+      <p class="text-muted">No passenger bookings found.</p>
+    <% } else { %>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>PNR</th>
+          <th>Customer</th>
+          <th>From → To</th>
+          <th>Date</th>
+          <th>Seat</th>
+          <th>Operator</th>
+          <th>Departure</th>
+          <th>Fare</th>
+          <th>Booked by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% passengers.forEach(function(p) { %>
+        <tr>
+          <td><%= p.pnr %></td>
+          <td><%= p.customer_name %><br><span class="text-muted"><%= p.customer_phone %></span></td>
+          <td><%= p.from_place %> → <%= p.destination %></td>
+          <td><%= p.travel_date %></td>
+          <td><%= p.seat_number %></td>
+          <td><%= p.bus_operator %></td>
+          <td><%= time12(p.departure_time) %></td>
+          <td>Rs. <%= Number(p.total_fare).toFixed(2) %></td>
+          <td><%= p.created_by_name %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h2 style="color:var(--gold); margin-bottom:1rem;">Parcel Bookings (<%= parcels.length %>)</h2>
+    <% if (parcels.length === 0) { %>
+      <p class="text-muted">No parcel bookings found.</p>
+    <% } else { %>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>PNR</th>
+          <th>Sender</th>
+          <th>Receiver</th>
+          <th>Destination</th>
+          <th>Boxes</th>
+          <th>Fare</th>
+          <th>Bus</th>
+          <th>Status</th>
+          <th>Booked by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% parcels.forEach(function(p) { %>
+        <tr>
+          <td><%= p.pnr %></td>
+          <td><%= p.sender_name %><br><span class="text-muted"><%= p.sender_phone %></span></td>
+          <td><%= p.receiver_name %><br><span class="text-muted"><%= p.receiver_phone %></span></td>
+          <td><%= p.destination %></td>
+          <td><%= p.num_boxes %></td>
+          <td>Rs. <%= Number(p.rate_fare || 0).toFixed(2) %></td>
+          <td><%= p.bus_assigned || '—' %></td>
+          <td><%- p.part_b_returned ? '<span class="badge success">Returned</span>' : '<span class="badge warning">Pending</span>' %></td>
+          <td><%= p.created_by_name %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    </div>
+    <% } %>
+  </div>
+
+<% } %>
+
+<%- include('./partials/footer') %>

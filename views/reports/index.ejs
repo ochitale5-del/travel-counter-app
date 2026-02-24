@@ -1,0 +1,134 @@
+<%- include('../partials/header', { title: 'Reports' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+
+<h1 style="margin-bottom:1rem;">Reports</h1>
+
+<div class="card">
+  <h2>Date range</h2>
+  <form method="get" action="/reports" class="form-row" style="align-items:flex-end; gap:1rem;">
+    <div class="form-group">
+      <label>From date</label>
+      <input type="date" name="from" value="<%= fromDate %>" required>
+    </div>
+    <div class="form-group">
+      <label>To date</label>
+      <input type="date" name="to" value="<%= toDate %>" required>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Run report</button>
+    </div>
+    <div class="form-group" style="margin-left:auto; text-align:right;">
+      <a href="/reports/pdf?from=<%= fromDate %>&to=<%= toDate %>" class="btn">Export PDF</a>
+      <button type="button" class="btn btn-ghost" onclick="window.print()">Print</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Summary (<%= fromDate %> to <%= toDate %>)</h2>
+  <div class="grid2">
+    <div>
+      <p><strong>Total revenue</strong><br><span class="text-muted">Passenger fare collected</span></p>
+      <p style="font-size:1.4rem; font-weight:700; margin-top:0.25rem;">Rs. <%= Number(summary.revenue || 0).toFixed(2) %></p>
+    </div>
+    <div>
+      <p><strong>Total commission</strong><br><span class="text-muted">Our earnings</span></p>
+      <p style="font-size:1.4rem; font-weight:700; margin-top:0.25rem;">Rs. <%= Number(summary.commission || 0).toFixed(2) %></p>
+    </div>
+    <div>
+      <p><strong>Settlements paid</strong><br><span class="text-muted">To operators (settled)</span></p>
+      <p style="font-size:1.4rem; font-weight:700; margin-top:0.25rem;">Rs. <%= Number(summary.settlementsPaid || 0).toFixed(2) %></p>
+    </div>
+    <div>
+      <p><strong>Bookings count</strong></p>
+      <p class="text-muted" style="margin-top:0.25rem;">
+        Passenger: <strong><%= summary.passengerCount || 0 %></strong><br>
+        Parcel: <strong><%= summary.parcelCount || 0 %></strong>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Passenger bookings</h2>
+  <% if (!passengers.length) { %>
+    <p class="text-muted">No passenger bookings in this range.</p>
+  <% } else { %>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>PNR</th>
+          <th>Customer</th>
+          <th>Destination</th>
+          <th>Departure date</th>
+          <th>Rate fare</th>
+          <th>Operator</th>
+          <th>Booked by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% passengers.forEach(function(p) { %>
+        <tr>
+          <td><%= p.pnr %></td>
+          <td><%= p.customer_name %></td>
+          <td><%= p.destination %></td>
+          <td><%= p.travel_date %></td>
+          <td>Rs. <%= Number(p.total_fare || 0).toFixed(2) %></td>
+          <td><%= p.bus_operator %></td>
+          <td><%= p.employee_name || '—' %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Parcel bookings</h2>
+  <% if (!parcels.length) { %>
+    <p class="text-muted">No parcel bookings in this range.</p>
+  <% } else { %>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>PNR</th>
+          <th>Sender</th>
+          <th>Receiver</th>
+          <th>Destination</th>
+          <th>Boxes</th>
+          <th>Rate</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% parcels.forEach(function(p) { 
+             var rate = (p.rate_fare && p.rate_fare > 0) 
+               ? p.rate_fare 
+               : (Number(p.price_per_box)||0) * (p.num_boxes||0) + (Number(p.loading_charges)||0) + (Number(p.unloading_charges)||0);
+             var status = 'Pending';
+             if (p.part_b_returned) status = 'Completed';
+             else if (p.bus_assigned) status = 'On bus';
+        %>
+        <tr>
+          <td><%= p.pnr %></td>
+          <td><%= p.sender_name %></td>
+          <td><%= p.receiver_name %></td>
+          <td><%= p.destination %></td>
+          <td><%= p.num_boxes %></td>
+          <td>Rs. <%= Number(rate || 0).toFixed(2) %></td>
+          <td><%= status %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>
+

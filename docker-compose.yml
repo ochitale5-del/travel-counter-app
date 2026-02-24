@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    image: travel-counter-app:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/usr/src/app:delegated
+      - ./data:/usr/src/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - SESSION_SECRET=change-this-in-prod
+    restart: unless-stopped

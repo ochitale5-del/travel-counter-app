@@ -1,0 +1,55 @@
+<%- include('../partials/header', { title: 'Admin - Activity Logs' }) %>
+<h1 style="margin-bottom:1rem;">Activity Logs</h1>
+<div class="card">
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>User</th>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Status</th>
+        <th>IP</th>
+        <th>Body</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% logs.forEach(function(l){ %>
+      <tr>
+        <td><%= l.created_at %></td>
+        <td><%= l.username || ('id:'+ (l.user_id||'—')) %></td>
+        <td><%= l.method %></td>
+        <td><%= l.path %><% if (l.query) { %>?<%= l.query %><% } %></td>
+        <td><%= l.status %></td>
+        <td><%= l.ip %></td>
+        <td style="max-width:360px; white-space:pre-wrap; word-break:break-word;"><%= (l.body && l.body.length>600) ? (l.body.substr(0,600)+'...') : (l.body||'') %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
+<%- include('../partials/header', { title: 'Activity Logs' }) %>
+<h1>Activity Logs</h1>
+<div class="card" style="overflow:auto; max-height:70vh;"><table>
+  <thead><tr><th>Time</th><th>User</th><th>Method</th><th>Path</th><th>Status</th><th>IP</th><th>UA</th><th>Query</th><th>Body</th></tr></thead>
+  <tbody>
+    <% logs.forEach(function(l){ %>
+    <tr>
+      <td><%= l.created_at %></td>
+      <td><%= l.username || ('#'+(l.user_id||'anonymous')) %></td>
+      <td><%= l.method %></td>
+      <td><%= l.path %></td>
+      <td><%= l.status %></td>
+      <td><%= l.ip %></td>
+      <td><%= l.user_agent %></td>
+      <td><%= l.query %></td>
+      <td><%= l.body %></td>
+    </tr>
+    <% }) %>
+  </tbody>
+</table></div>
+<%- include('../partials/footer') %>

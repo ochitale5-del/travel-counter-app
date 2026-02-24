@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title + ' — ' : '' %>Ratna CT Travels</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    header a { color: var(--text); text-decoration: none; }
+    .logo { font-weight: 700; font-size: 1.25rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+    nav a, nav span {
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    nav a:hover { background: var(--border); }
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .btn:hover { background: var(--accent-hover); color: #000; }
+    .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+    .btn-ghost { background: transparent; color: var(--accent); }
+    .btn-ghost:hover { background: rgba(245,158,11,0.15); color: var(--accent); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    tr:hover td { background: rgba(255,255,255,0.03); }
+    .flash { padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; }
+    .flash.success { background: rgba(34,197,94,0.2); border: 1px solid var(--success); }
+    .flash.error { background: rgba(239,68,68,0.2); border: 1px solid var(--danger); }
+    label { display: block; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.9rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+    .form-group { margin-bottom: 0.5rem; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .badge.success { background: var(--success); color: #000; }
+    .badge.warning { background: var(--accent); color: #000; }
+    .text-muted { color: var(--muted); font-size: 0.85rem; }
+    .text-right { text-align: right; }
+    @media (max-width: 768px) {
+      .form-row { grid-template-columns: 1fr; }
+      nav { width: 100%; }
+      table { font-size: 0.8rem; }
+      th, td { padding: 0.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <% if (typeof user !== 'undefined' && user) { %>
+  <header>
+    <a href="/" class="logo">Ratna CT Travels</a>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/bookings">Bookings</a>
+      <a href="/bookings/new">New Booking</a>
+      <a href="/parcels">Parcels</a>
+      <a href="/parcels/new">New Parcel</a>
+      <a href="/operators">Settlements</a>
+      <span class="text-muted"><%= user.name %></span>
+      <form action="/logout" method="post" style="display:inline;">
+        <button type="submit" class="btn btn-sm btn-ghost">Logout</button>
+      </form>
+    </nav>
+  </header>
+  <% } %>
+  <main class="container">
+    <% if (typeof flash !== 'undefined' && flash) { %>
+    <div class="flash <%= flash.type %>"><%= flash.message %></div>
+    <% } %>
+    <%- body %>
+  </main>
+</body>
+</html>

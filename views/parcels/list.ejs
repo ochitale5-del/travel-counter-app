@@ -1,0 +1,169 @@
+<%- include('../partials/header', { title: 'Parcel Bookings' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1 style="margin-bottom:1rem;">Parcel Bookings</h1>
+<p><a href="/parcels/new" class="btn">New Parcel</a></p>
+
+<div class="card">
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>PNR</th>
+        <th>Sender</th>
+        <th>Receiver</th>
+        <th>Destination</th>
+        <th>Boxes</th>
+        <th>Charges (rate)</th>
+        <th>Net fare</th>
+        <th>Commission</th>
+        <th>Bus assigned</th>
+        <!-- Part B column removed -->
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% parcels.forEach(function(p) { %>
+      <tr data-pnr="<%= p.pnr %>" data-created-at="<%= p.created_at %>" data-lr="<%= p.lr_number || '' %>" data-bus-number="<%= p.bus_number || '' %>" data-driver-phone="<%= p.driver_phone || '' %>" data-delivery-addr="<%= encodeURIComponent(p.delivery_address || '') %>" data-status="<%= p.status || 1 %>">
+        <td><%= p.pnr %></td>
+        <td><%= p.sender_name %><br><span class="text-muted"><%= p.sender_phone %></span></td>
+        <td><%= p.receiver_name %><br><span class="text-muted"><%= p.receiver_phone %></span></td>
+        <td><%= p.destination %></td>
+        <td><%= p.num_boxes %></td>
+        <td>₹<%= (p.rate_fare && p.rate_fare > 0 ? Number(p.rate_fare) : (Number(p.price_per_box)*p.num_boxes + Number(p.loading_charges) + Number(p.unloading_charges))).toFixed(2) %></td>
+        <td>₹<%= Number(p.net_fare || p.rate_fare || 0).toFixed(2) %></td>
+        <td>₹<%= Number(p.commission || ((p.rate_fare || 0) - (p.net_fare || 0))).toFixed(2) %></td>
+        <td><%= p.bus_assigned || '—' %><% if (p.bus_departure_time) { %><br><span class="text-muted"><%= time12(p.bus_departure_time) %></span><% } %></td>
+        <!-- part_b_returned cell removed -->
+        <td>
+          <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Print Part B</a>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="assignBus(<%= p.id %>, '<%= p.bus_assigned||'' %>', '<%= p.bus_departure_time||'' %>', '<%= p.bus_number||'' %>', '<%= p.driver_name||'' %>', '<%= p.driver_phone||'' %>', '<%= p.lr_number||'' %>')"><%= p.bus_assigned ? 'Edit bus' : 'Assign bus' %></button>
+          <a href="/parcels/<%= p.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
+          <a href="/parcels/<%= p.id %>" class="btn btn-sm btn-ghost">Edit delivery</a>
+          <% if (!p.part_b_returned) { %>
+          <form action="/parcels/<%= p.id %>/mark-part-b-returned" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-ghost">Mark returned</button>
+          </form>
+          <% } %>
+          <button type="button" class="btn btn-sm" onclick="notifyParcelRow(this, '<%= (p.sender_phone||'') %>')">Notify Sender</button>
+          <button type="button" class="btn btn-sm" style="margin-left:0.5rem;" onclick="notifyParcelRow(this, '<%= (p.receiver_phone||'') %>')">Notify Receiver</button>
+          <form action="/parcels/update-status" method="post" style="display:inline; margin-left:0.5rem;">
+            <input type="hidden" name="id" value="<%= p.id %>">
+            <select name="status" style="padding:3px;">
+              <option value="1" <%= (p.status||1)==1 ? 'selected' : '' %>>Booked</option>
+              <option value="2" <%= (p.status||1)==2 ? 'selected' : '' %>>Dispatched</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-ghost">Set</button>
+          </form>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div id="assign-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center;">
+</div>
+<script>
+function assignBus(id, busAssigned, busTime, busNumber, driverName, driverPhone, lrNumber) {
+  var m = document.getElementById('assign-modal');
+  if (!m) return;
+  m.innerHTML = '<div class="card" style="margin:2rem; min-width:320px;"><h2>Assign / Edit Bus</h2><form method="post" action="/parcels/' + id + '/assign-bus">' +
+    '<label>Bus / Operator</label><input type="text" name="bus_assigned" placeholder="e.g. Shyam Travels" value="' + (busAssigned||'') + '">' +
+    '<label>Bus Number</label><input type="text" name="bus_number" placeholder="e.g. MH04 AB1234" value="' + (busNumber||'') + '">' +
+    '<label>Driver Name</label><input type="text" name="driver_name" placeholder="Driver full name" value="' + (driverName||'') + '">' +
+    '<label>Driver Phone</label><input type="text" name="driver_phone" placeholder="Driver mobile number" value="' + (driverPhone||'') + '">' +
+    '<label>LR Number</label><input type="text" name="lr_number" placeholder="LR / consignment number" value="' + (lrNumber||'') + '">' +
+    '<label>Departure time</label>' +
+'<div style="display:flex; gap:0.5rem;">' +
+'<select name="dep_hour" style="flex:1;">' + [1,2,3,4,5,6,7,8,9,10,11,12].map(h => '<option value="'+h+'">'+(h)+'</option>').join('') + '</select>' +
+'<select name="dep_minute" style="flex:1;">' + ['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => '<option value="'+m+'">'+m+'</option>').join('') + '</select>' +
+'<select name="dep_period" style="flex:1;"><option value="AM">AM</option><option value="PM">PM</option></select>' +
+'</div>' +
+    '<button type="submit" class="btn">Save</button> <button type="button" class="btn btn-ghost" onclick="document.getElementById(\'assign-modal\').style.display=\'none\'">Cancel</button></form></div>';
+  m.style.display = 'flex';
+}
+
+</script>
+<%- include('../partials/footer') %>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var highlightPnr = params.get('pnr');
+    if (!highlightPnr) return;
+    var rows = document.querySelectorAll('table tbody tr');
+    for (var i=0;i<rows.length;i++){
+      var r = rows[i];
+      if ((r.dataset.pnr||'') === highlightPnr) {
+        r.style.outline = '3px solid #ffd54f';
+        r.scrollIntoView({behavior:'smooth', block:'center'});
+        // build modal
+        var created = r.dataset.createdAt || r.getAttribute('data-created-at') || '';
+        var lr = r.dataset.lr || r.getAttribute('data-lr') || '';
+        var busNo = r.dataset.busNumber || r.getAttribute('data-bus-number') || '';
+        var driverPhone = r.dataset.driverPhone || r.getAttribute('data-driver-phone') || '';
+        var deliveryAddr = decodeURIComponent(r.dataset.deliveryAddr || r.getAttribute('data-delivery-addr') || '');
+        var status = r.dataset.status || r.getAttribute('data-status') || '1';
+        // modal
+        var m = document.createElement('div');
+        m.style.position = 'fixed'; m.style.inset = 0; m.style.background = 'rgba(0,0,0,0.6)'; m.style.display='flex'; m.style.alignItems='center'; m.style.justifyContent='center'; m.style.zIndex=200;
+        m.innerHTML = '<div class="card" style="min-width:300px; margin:1rem;">' +
+          '<h3>Booking created: ' + highlightPnr + '</h3>' +
+          '<p style="margin-bottom:0.5rem;">Destination: ' + (r.children[3]?.innerText||'') + '<br>No. of parcels: ' + (r.children[4]?.innerText||'') + '</p>' +
+          '<div style="display:flex; gap:0.5rem;">' +
+          '<button class="btn" id="_notify_sender">Notify Sender</button>' +
+          '<button class="btn" id="_notify_receiver">Notify Receiver</button>' +
+          '<button class="btn btn-ghost" id="_notify_close">Close</button>' +
+          '</div></div>';
+        document.body.appendChild(m);
+        document.getElementById('_notify_close').addEventListener('click', function(){ document.body.removeChild(m); });
+        document.getElementById('_notify_sender').addEventListener('click', function(){
+          var senderPhone = (r.children[1]?.querySelector('.text-muted')?.innerText||'');
+          if (senderPhone) notifyParcel(senderPhone, highlightPnr, r.children[3]?.innerText||'', created, r.children[4]?.innerText||'', lr, busNo, r.dataset.busAssigned||'', driverPhone, deliveryAddr, status);
+        });
+        document.getElementById('_notify_receiver').addEventListener('click', function(){
+          var receiverPhone = (r.children[2]?.querySelector('.text-muted')?.innerText||'');
+          if (receiverPhone) notifyParcel(receiverPhone, highlightPnr, r.children[3]?.innerText||'', created, r.children[4]?.innerText||'', lr, busNo, r.dataset.busAssigned||'', driverPhone, deliveryAddr, status);
+        });
+        break;
+      }
+    }
+  } catch (e) {}
+});
+</script>
+
+<script>
+function fmtPhone(p){ p = (p||'').replace(/\D/g,''); if (p.length===10) p='91'+p; return p; }
+function notifyParcel(phone, pnr, dest, date, numBoxes, lr, busNo, travelNum, driverPhone, deliveryAddr, status) {
+  if (!phone) return alert('No phone provided');
+  var statusText = (parseInt(status,10) === 2) ? 'Dispatched' : 'Booked';
+  var msg = `Hey, great news — your parcel is ${statusText.toLowerCase()} now. Relax, we will deliver it for you and update you soon.\n\n` +
+    `PNR: ${pnr}\nStatus: ${statusText}\nDestination: ${dest}\nDate: ${date}\nNo. of parcels: ${numBoxes}\nLR number: ${lr || 'N/A'}\nBus no: ${busNo || 'N/A'}\nTravel: ${travelNum || 'N/A'}\nDriver: ${driverPhone || 'N/A'}\nDelivery address: ${deliveryAddr || 'N/A'}`;
+  var p = fmtPhone(phone);
+  if (!p) return alert('Invalid phone number');
+  var url = 'https://wa.me/' + encodeURIComponent(p) + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+function notifyParcelRow(btn, phone) {
+  try {
+    var row = btn.closest('tr');
+    if (!row) return notifyParcel(phone);
+    var pnr = row.dataset.pnr || '';
+    var dest = row.children[3] ? row.children[3].innerText.trim() : '';
+    var date = row.children[3] ? (row.children[3].innerText.trim() || '') : '';
+    var numBoxes = row.children[4] ? row.children[4].innerText.trim() : '';
+    var lr = row.dataset.lr || '';
+    var busNo = row.dataset.busNumber || '';
+    var travelNum = row.dataset.busAssigned || '';
+    var driverPhone = row.dataset.driverPhone || '';
+    var deliveryAddr = decodeURIComponent(row.dataset.deliveryAddr || '');
+    var status = row.dataset.status || '1';
+    notifyParcel(phone, pnr, dest, date, numBoxes, lr, busNo, travelNum, driverPhone, deliveryAddr, status);
+  } catch(e) { notifyParcel(phone); }
+}
+</script>
