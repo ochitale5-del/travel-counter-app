@@ -27,7 +27,7 @@ A web app for managing passenger and parcel bookings, operator settlements, and 
 3. Optional: copy `.env.example` to `.env` and set:
    - `SESSION_SECRET` – for production
    - `SMTP_*` – to send ticket PDFs by email
-   - `WHATSAPP_ENABLED`, `TWILIO_*` – for WhatsApp (install `twilio` and configure)
+   - `PUBLIC_BASE_URL` and `MEDIA_TOKEN` – if you want generated PDFs to be accessible via links included in WhatsApp messages
 
 4. Start the app:
    ```bash
@@ -52,11 +52,9 @@ A web app for managing passenger and parcel bookings, operator settlements, and 
 
 ## WhatsApp
 
-To enable WhatsApp notifications, install Twilio and set in `.env`:
+WhatsApp notifications use simple `wa.me` links (WhatsApp Web/mobile) with a prefilled message.
+Attachments are not supported by `wa.me` URLs. The server generates the message and redirects users
+to WhatsApp so they can send it from their device.
 
-- `WHATSAPP_ENABLED=1`
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_WHATSAPP_FROM` (e.g. `whatsapp:+14155238886`)
-
-Without this, the app still runs; notifications are skipped and optionally logged.
+If you later want programmatic sending with media attachments, integrate a provider (e.g. Twilio) and
+restore server-side API usage.

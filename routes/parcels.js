@@ -6,6 +6,7 @@ const pdfService = require('../services/pdf');
 const whatsappService = require('../services/whatsapp');
 const path = require('path');
 const fs = require('fs');
+const { to12Hour } = require('../utils/time');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -95,16 +96,19 @@ router.post('/new', async (req, res) => {
 router.get('/:id/part-b', (req, res) => {
   const parcel = db.prepare('SELECT * FROM parcel_bookings WHERE id = ?').get(req.params.id);
   if (!parcel) return res.status(404).send('Not found');
-  const filepath = path.join(pdfService.outputDir, `parcel-${parcel.pnr}-partB.pdf`);
-  if (!fs.existsSync(filepath)) {
-    return res.status(404).send('Part B not generated.');
-  }
-  res.sendFile(path.resolve(filepath));
+  // Thermal print layout
+  pdfService
+    .parcelPartB(parcel)
+    .then(({ filepath }) => res.sendFile(path.resolve(filepath)))
+    .catch((e) => {
+      console.error('Thermal parcel Part B error:', e);
+      res.status(500).send('Failed to generate Part B.');
+    });
 });
 
 router.post('/:id/assign-bus', async (req, res) => {
   const id = req.params.id;
-  const { bus_assigned, bus_number, driver_name, driver_phone, lr_number, dep_hour, dep_minute, dep_period } = req.body || {};
+  const { bus_assigned, bus_number, driver_name, driver_phone, lr_number, dep_hour, dep_minute, dep_period, delivery_address, delivery_contact } = req.body || {};
 
   // Convert AM/PM to 24hr format
   let bus_departure_time = null;
@@ -124,9 +128,134 @@ router.post('/:id/assign-bus', async (req, res) => {
     try {
       await pdfService.parcelPartB(parcel);
     } catch (e) {}
+
+    // Auto notify sender + receiver (with A4 receipt link included if PUBLIC_BASE_URL configured)
+    const statusText = parcel.status === 2 ? 'Dispatched' : 'Booked';
+    const msgBase =
+      `PNR: ${parcel.pnr}\n` +
+      `Status: ${statusText}\n` +
+      `Destination: ${parcel.destination || 'N/A'}\n` +
+      `Sender: ${parcel.sender_name || 'N/A'}\n` +
+      `Receiver: ${parcel.receiver_name || 'N/A'}\n` +
+      `Date: ${parcel.created_at || 'N/A'}\n` +
+      `No. of parcels: ${parcel.num_boxes || 0}\n` +
+      `LR number: ${parcel.lr_number || 'N/A'}\n` +
+      `Bus no: ${parcel.bus_number || 'N/A'}\n` +
+      `Travel: ${parcel.bus_assigned || 'N/A'}\n` +
+      `Driver: ${parcel.driver_name || 'N/A'} (${parcel.driver_phone || 'N/A'})\n` +
+      `Delivery address: ${parcel.delivery_address || 'N/A'}\n`;
+
+    const { filename } = await pdfService.parcelReceipt_A4(parcel);
+    const base = process.env.PUBLIC_BASE_URL || '';
+    const token = process.env.MEDIA_TOKEN || '';
+    const mediaUrl = base && token ? `${base}/media/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}` : null;
+    const msg = mediaUrl ? `${msgBase}\nReceipt: ${mediaUrl}` : msgBase;
+
+    await whatsappService.sendWhatsApp(parcel.sender_phone, msg).catch(() => {});
+    await whatsappService.sendWhatsApp(parcel.receiver_phone, msg).catch(() => {});
   }
 
   req.session.flash = { type: 'success', message: 'Bus assigned and parties notified.' };
+  res.redirect('/parcels');
+});
+
+router.post('/:id/notify-whatsapp', async (req, res) => {
+  const parcel = db.prepare('SELECT * FROM parcel_bookings WHERE id = ?').get(req.params.id);
+  if (!parcel) return res.status(404).send('Not found');
+
+  const who = (req.body.who || 'sender') === 'receiver' ? 'receiver' : 'sender';
+  const toPhone = who === 'receiver' ? parcel.receiver_phone : parcel.sender_phone;
+
+  const dep = parcel.bus_departure_time ? to12Hour(parcel.bus_departure_time) : 'TBD';
+  const statusText = parcel.status === 2 ? 'Dispatched' : 'Booked';
+  let msgBase =
+    `PNR: ${parcel.pnr}\n` +
+    `Status: ${statusText}\n` +
+    `Destination: ${parcel.destination || 'N/A'}\n` +
+    `Sender: ${parcel.sender_name || 'N/A'}\n` +
+    `Receiver: ${parcel.receiver_name || 'N/A'}\n` +
+    `Date: ${parcel.created_at || 'N/A'}\n` +
+    `No. of parcels: ${parcel.num_boxes || 0}\n` +
+    `LR number: ${parcel.lr_number || 'N/A'}\n` +
+    `Bus no: ${parcel.bus_number || 'N/A'}\n` +
+    `Travel: ${parcel.bus_assigned || 'N/A'}\n` +
+    `Driver: ${parcel.driver_name || 'N/A'} (${parcel.driver_phone || 'N/A'})\n` +
+    `Delivery address: ${parcel.delivery_address || 'N/A'}\n`;
+
+  const { filename } = await pdfService.parcelReceipt_A4(parcel);
+  const base = process.env.PUBLIC_BASE_URL || '';
+  const token = process.env.MEDIA_TOKEN || '';
+  const mediaUrl = base && token ? `${base}/media/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}` : null;
+  const msg = mediaUrl ? `${msgBase}\nReceipt: ${mediaUrl}` : msgBase;
+
+  const result = await whatsappService.sendWhatsApp(toPhone, msg);
+  if (result.fallbackUrl) return res.redirect(result.fallbackUrl);
+  req.session.flash = { type: 'success', message: `WhatsApp notification sent to ${who}.` };
+  res.redirect(req.headers.referer || '/parcels');
+});
+
+router.post('/mass-assign-bus', async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids : [req.body.ids].filter(Boolean);
+  const parsedIds = ids.map((x) => parseInt(x, 10)).filter((x) => Number.isFinite(x) && x > 0);
+  if (parsedIds.length === 0) {
+    req.session.flash = { type: 'error', message: 'No parcels selected.' };
+    return res.redirect('/parcels');
+  }
+
+  const { bus_assigned, bus_number, driver_name, driver_phone, lr_number, dep_hour, dep_minute, dep_period } = req.body || {};
+  let bus_departure_time = null;
+  if (dep_hour && dep_minute && dep_period) {
+    let hour = parseInt(dep_hour, 10);
+    if (dep_period === 'PM' && hour !== 12) hour += 12;
+    if (dep_period === 'AM' && hour === 12) hour = 0;
+    bus_departure_time = `${String(hour).padStart(2, '0')}:${String(dep_minute).padStart(2, '0')}`;
+  }
+
+  // sanitize optional delivery contact
+  let deliveryContactSan = (delivery_contact || '').replace(/\D/g, '');
+  if (deliveryContactSan === '') deliveryContactSan = null;
+  const deliveryAddressSan = (delivery_address || '').trim() || null;
+
+  const update = db.prepare(
+    `UPDATE parcel_bookings
+     SET bus_assigned = ?, bus_departure_time = ?, bus_number = ?, driver_name = ?, driver_phone = ?, lr_number = ?, delivery_address = ?, delivery_contact = ?
+     WHERE id = ?`
+  );
+  const getOne = db.prepare('SELECT * FROM parcel_bookings WHERE id = ?');
+
+  for (const id of parsedIds) {
+    update.run(bus_assigned || null, bus_departure_time || null, bus_number || null, driver_name || null, driver_phone || null, lr_number || null, deliveryAddressSan, deliveryContactSan, id);
+    const parcel = getOne.get(id);
+    if (!parcel) continue;
+
+    try { await pdfService.parcelPartB(parcel); } catch (e) {}
+    try {
+      const dep = parcel.bus_departure_time ? to12Hour(parcel.bus_departure_time) : 'TBD';
+      const statusText = parcel.status === 2 ? 'Dispatched' : 'Booked';
+      const msgBase =
+        `PNR: ${parcel.pnr}\n` +
+        `Status: ${statusText}\n` +
+        `Destination: ${parcel.destination || 'N/A'}\n` +
+        `Sender: ${parcel.sender_name || 'N/A'}\n` +
+        `Receiver: ${parcel.receiver_name || 'N/A'}\n` +
+        `Date: ${parcel.created_at || 'N/A'}\n` +
+        `No. of parcels: ${parcel.num_boxes || 0}\n` +
+        `LR number: ${parcel.lr_number || 'N/A'}\n` +
+        `Bus no: ${parcel.bus_number || 'N/A'}\n` +
+        `Travel: ${parcel.bus_assigned || 'N/A'}\n` +
+        `Driver: ${parcel.driver_name || 'N/A'} (${parcel.driver_phone || 'N/A'})\n` +
+        `Delivery address: ${parcel.delivery_address || 'N/A'}\n`;
+      const { filename } = await pdfService.parcelReceipt_A4(parcel);
+      const base = process.env.PUBLIC_BASE_URL || '';
+      const token = process.env.MEDIA_TOKEN || '';
+      const mediaUrl = base && token ? `${base}/media/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}` : null;
+      const msg = mediaUrl ? `${msgBase}\nReceipt: ${mediaUrl}` : msgBase;
+      await whatsappService.sendWhatsApp(parcel.sender_phone, msg).catch(() => {});
+      await whatsappService.sendWhatsApp(parcel.receiver_phone, msg).catch(() => {});
+    } catch (e) {}
+  }
+
+  req.session.flash = { type: 'success', message: `Mass assigned bus for ${parsedIds.length} parcels.` };
   res.redirect('/parcels');
 });
 

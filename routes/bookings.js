@@ -7,6 +7,7 @@ const emailService = require('../services/email');
 const path = require('path');
 const fs = require('fs');
 const { to12Hour } = require('../utils/time');
+const whatsappService = require('../services/whatsapp');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -130,21 +131,85 @@ router.post('/new', async (req, res) => {
 router.get('/:id/part-b', (req, res) => {
   const booking = db.prepare('SELECT * FROM passenger_bookings WHERE id = ?').get(req.params.id);
   if (!booking) return res.status(404).send('Not found');
-  const filepath = path.join(pdfService.outputDir, `passenger-${booking.pnr}-partB.pdf`);
-  if (!fs.existsSync(filepath)) {
-    return res.status(404).send('Part B not generated. Create booking again.');
-  }
-  res.sendFile(path.resolve(filepath));
+  // Thermal print layout
+  pdfService
+    .passengerPartB(booking)
+    .then(({ filepath }) => res.sendFile(path.resolve(filepath)))
+    .catch((e) => {
+      console.error('Thermal Part B error:', e);
+      res.status(500).send('Failed to generate Part B.');
+    });
 });
 
 router.get('/:id/part-a', (req, res) => {
   const booking = db.prepare('SELECT * FROM passenger_bookings WHERE id = ?').get(req.params.id);
   if (!booking) return res.status(404).send('Not found');
-  const filepath = path.join(pdfService.outputDir, `passenger-${booking.pnr}-partA.pdf`);
-  if (!fs.existsSync(filepath)) {
-    return res.status(404).send('Part A not generated.');
+  // Thermal print layout
+  pdfService
+    .passengerPartA(booking)
+    .then(({ filepath }) => res.sendFile(path.resolve(filepath)))
+    .catch((e) => {
+      console.error('Thermal Part A error:', e);
+      res.status(500).send('Failed to generate Part A.');
+    });
+});
+
+router.post('/:id/notify-whatsapp', async (req, res) => {
+  const booking = db.prepare('SELECT * FROM passenger_bookings WHERE id = ?').get(req.params.id);
+  if (!booking) return res.status(404).send('Not found');
+  // Build message per requested format, include reporting time (15 minutes before departure)
+  const departure = booking.departure_time || '';
+  function subtractMinutes(timeStr, mins) {
+    if (!timeStr || typeof timeStr !== 'string') return '';
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return '';
+    let h = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return '';
+    let total = h * 60 + m - mins;
+    if (total < 0) total += 24 * 60;
+    const nh = Math.floor(total / 60) % 24;
+    const nm = total % 60;
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
   }
-  res.sendFile(path.resolve(filepath));
+
+  const reportingRaw = subtractMinutes(departure, 15);
+  const reportingDisplay = reportingRaw ? to12Hour(reportingRaw) : 'TBD';
+  const departureDisplay = departure ? to12Hour(departure) : 'TBD';
+
+  // Number of seats: count comma-separated seat numbers or default to 1 if seat present
+  let seatsCount = 0;
+  if (booking.seat_number && String(booking.seat_number).trim() !== '') {
+    seatsCount = String(booking.seat_number).split(',').filter(Boolean).length || 1;
+  }
+
+  const msg =
+    `Good news — your booking is confirmed!\n\n` +
+    `PNR: ${booking.pnr || ''}\n` +
+    `From: ${booking.from_place || ''}\n` +
+    `To: ${booking.destination || ''}\n` +
+    `Date: ${booking.travel_date || ''}\n` +
+    `Departure: ${departureDisplay}\n` +
+    `Reporting time: ${reportingDisplay} (always 15min before departure time)\n` +
+    `No. of seats: ${seatsCount}\n` +
+    `Seat(s): ${booking.seat_number || ''}\n` +
+    `Operator: ${booking.bus_operator || ''}\n` +
+    `Boarding point: ${booking.boarding_point || ''}\n\n` +
+    `Relax — arrive at the reporting point a little early and we will take care of the rest. Have a pleasant journey!`;
+
+  // A4 PDF link appended if PUBLIC_BASE_URL/MEDIA_TOKEN configured
+  const { filename } = await pdfService.passengerPartA_A4(booking);
+  const base = process.env.PUBLIC_BASE_URL || '';
+  const token = process.env.MEDIA_TOKEN || '';
+  const publicLink = base && token ? `${base}/media/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}` : null;
+  const finalMsg = publicLink ? `${msg}\n\nTicket: ${publicLink}` : msg;
+
+  const result = await whatsappService.sendWhatsApp(booking.customer_phone, finalMsg);
+  if (result.fallbackUrl) {
+    return res.redirect(result.fallbackUrl);
+  }
+  req.session.flash = { type: 'success', message: 'WhatsApp notification sent (A4 PDF attached if configured).' };
+  res.redirect(req.headers.referer || '/bookings');
 });
 
 router.post('/:id/mark-part-b-returned', (req, res) => {

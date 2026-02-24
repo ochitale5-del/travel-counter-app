@@ -6,10 +6,72 @@
 <p><a href="/parcels/new" class="btn">New Parcel</a></p>
 
 <div class="card">
+  <h2>Mass assign bus</h2>
+  <form id="massAssignForm" method="post" action="/parcels/mass-assign-bus">
+    <div class="form-row" style="grid-template-columns: repeat(6, minmax(0, 1fr)); align-items:end;">
+      <div class="form-group" style="grid-column: span 2;">
+        <label>Bus / Operator</label>
+        <input type="text" name="bus_assigned" placeholder="e.g. Shyam Travels" required>
+      </div>
+      <div class="form-group">
+        <label>Bus number</label>
+        <input type="text" name="bus_number" placeholder="MH04...">
+      </div>
+      <div class="form-group">
+        <label>Driver name</label>
+        <input type="text" name="driver_name">
+      </div>
+      <div class="form-group">
+        <label>Driver phone</label>
+        <input type="text" name="driver_phone">
+      </div>
+      <div class="form-group">
+        <label>LR number</label>
+        <input type="text" name="lr_number">
+      </div>
+      <div class="form-group">
+        <label>Delivery address (optional)</label>
+        <input type="text" name="delivery_address" placeholder="Delivery address (optional)">
+      </div>
+      <div class="form-group">
+        <label>Delivery contact (optional)</label>
+        <input type="text" name="delivery_contact" placeholder="10-digit mobile (optional)">
+      </div>
+      <div class="form-group" style="grid-column: span 2;">
+        <label>Departure time</label>
+        <div style="display:flex; gap:0.5rem;">
+          <select name="dep_hour" style="flex:1;">
+            <% for (var h=1; h<=12; h++) { %><option value="<%= h %>"><%= h %></option><% } %>
+          </select>
+          <select name="dep_minute" style="flex:1;">
+            <% ['00','05','10','15','20','25','30','35','40','45','50','55'].forEach(function(m){ %>
+              <option value="<%= m %>"><%= m %></option>
+            <% }); %>
+          </select>
+          <select name="dep_period" style="flex:1;">
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn" onclick="return submitMassAssign()">Assign to selected</button>
+      </div>
+      <div class="form-group">
+        <button type="button" class="btn btn-ghost" onclick="toggleAll(true)">Select all</button>
+        <button type="button" class="btn btn-ghost" onclick="toggleAll(false)">Clear</button>
+      </div>
+    </div>
+  </form>
+  <p class="text-muted">Select multiple parcels below, then assign them to the same bus in one click.</p>
+</div>
+
+<div class="card">
   <div style="overflow-x:auto;">
   <table>
     <thead>
       <tr>
+        <th><input type="checkbox" id="chk_all" onclick="toggleAll(this.checked)"></th>
         <th>PNR</th>
         <th>Sender</th>
         <th>Receiver</th>
@@ -25,7 +87,8 @@
     </thead>
     <tbody>
       <% parcels.forEach(function(p) { %>
-      <tr data-pnr="<%= p.pnr %>" data-created-at="<%= p.created_at %>" data-lr="<%= p.lr_number || '' %>" data-bus-number="<%= p.bus_number || '' %>" data-driver-phone="<%= p.driver_phone || '' %>" data-delivery-addr="<%= encodeURIComponent(p.delivery_address || '') %>" data-status="<%= p.status || 1 %>">
+      <tr data-id="<%= p.id %>" data-pnr="<%= p.pnr %>" data-created-at="<%= p.created_at %>" data-lr="<%= p.lr_number || '' %>" data-bus-number="<%= p.bus_number || '' %>" data-driver-phone="<%= p.driver_phone || '' %>" data-delivery-addr="<%= encodeURIComponent(p.delivery_address || '') %>" data-status="<%= p.status || 1 %>">
+        <td><input type="checkbox" class="mass_chk" value="<%= p.id %>"></td>
         <td><%= p.pnr %></td>
         <td><%= p.sender_name %><br><span class="text-muted"><%= p.sender_phone %></span></td>
         <td><%= p.receiver_name %><br><span class="text-muted"><%= p.receiver_phone %></span></td>
@@ -37,7 +100,7 @@
         <td><%= p.bus_assigned || '—' %><% if (p.bus_departure_time) { %><br><span class="text-muted"><%= time12(p.bus_departure_time) %></span><% } %></td>
         <!-- part_b_returned cell removed -->
         <td>
-          <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Print Part B</a>
+          <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Print Part B (Thermal)</a>
           <button type="button" class="btn btn-sm btn-ghost" onclick="assignBus(<%= p.id %>, '<%= p.bus_assigned||'' %>', '<%= p.bus_departure_time||'' %>', '<%= p.bus_number||'' %>', '<%= p.driver_name||'' %>', '<%= p.driver_phone||'' %>', '<%= p.lr_number||'' %>')"><%= p.bus_assigned ? 'Edit bus' : 'Assign bus' %></button>
           <a href="/parcels/<%= p.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
           <a href="/parcels/<%= p.id %>" class="btn btn-sm btn-ghost">Edit delivery</a>
@@ -46,8 +109,14 @@
             <button type="submit" class="btn btn-sm btn-ghost">Mark returned</button>
           </form>
           <% } %>
-          <button type="button" class="btn btn-sm" onclick="notifyParcelRow(this, '<%= (p.sender_phone||'') %>')">Notify Sender</button>
-          <button type="button" class="btn btn-sm" style="margin-left:0.5rem;" onclick="notifyParcelRow(this, '<%= (p.receiver_phone||'') %>')">Notify Receiver</button>
+          <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline;">
+            <input type="hidden" name="who" value="sender">
+            <button type="submit" class="btn btn-sm">Notify Sender (A4 PDF)</button>
+          </form>
+          <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline; margin-left:0.5rem;">
+            <input type="hidden" name="who" value="receiver">
+            <button type="submit" class="btn btn-sm">Notify Receiver (A4 PDF)</button>
+          </form>
           <form action="/parcels/update-status" method="post" style="display:inline; margin-left:0.5rem;">
             <input type="hidden" name="id" value="<%= p.id %>">
             <select name="status" style="padding:3px;">
@@ -122,12 +191,23 @@ document.addEventListener('DOMContentLoaded', function(){
         document.body.appendChild(m);
         document.getElementById('_notify_close').addEventListener('click', function(){ document.body.removeChild(m); });
         document.getElementById('_notify_sender').addEventListener('click', function(){
-          var senderPhone = (r.children[1]?.querySelector('.text-muted')?.innerText||'');
-          if (senderPhone) notifyParcel(senderPhone, highlightPnr, r.children[3]?.innerText||'', created, r.children[4]?.innerText||'', lr, busNo, r.dataset.busAssigned||'', driverPhone, deliveryAddr, status);
+          var id = r.dataset.id || '';
+          if (!id) return alert('Missing parcel id');
+          // Submit a POST form to server-side notify endpoint (which will redirect to wa.me)
+          var f = document.createElement('form');
+          f.method = 'post';
+          f.action = '/parcels/' + encodeURIComponent(id) + '/notify-whatsapp';
+          var inp = document.createElement('input'); inp.type='hidden'; inp.name='who'; inp.value='sender'; f.appendChild(inp);
+          document.body.appendChild(f); f.submit();
         });
         document.getElementById('_notify_receiver').addEventListener('click', function(){
-          var receiverPhone = (r.children[2]?.querySelector('.text-muted')?.innerText||'');
-          if (receiverPhone) notifyParcel(receiverPhone, highlightPnr, r.children[3]?.innerText||'', created, r.children[4]?.innerText||'', lr, busNo, r.dataset.busAssigned||'', driverPhone, deliveryAddr, status);
+          var id = r.dataset.id || '';
+          if (!id) return alert('Missing parcel id');
+          var f = document.createElement('form');
+          f.method = 'post';
+          f.action = '/parcels/' + encodeURIComponent(id) + '/notify-whatsapp';
+          var inp = document.createElement('input'); inp.type='hidden'; inp.name='who'; inp.value='receiver'; f.appendChild(inp);
+          document.body.appendChild(f); f.submit();
         });
         break;
       }
@@ -137,33 +217,25 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <script>
-function fmtPhone(p){ p = (p||'').replace(/\D/g,''); if (p.length===10) p='91'+p; return p; }
-function notifyParcel(phone, pnr, dest, date, numBoxes, lr, busNo, travelNum, driverPhone, deliveryAddr, status) {
-  if (!phone) return alert('No phone provided');
-  var statusText = (parseInt(status,10) === 2) ? 'Dispatched' : 'Booked';
-  var msg = `Hey, great news — your parcel is ${statusText.toLowerCase()} now. Relax, we will deliver it for you and update you soon.\n\n` +
-    `PNR: ${pnr}\nStatus: ${statusText}\nDestination: ${dest}\nDate: ${date}\nNo. of parcels: ${numBoxes}\nLR number: ${lr || 'N/A'}\nBus no: ${busNo || 'N/A'}\nTravel: ${travelNum || 'N/A'}\nDriver: ${driverPhone || 'N/A'}\nDelivery address: ${deliveryAddr || 'N/A'}`;
-  var p = fmtPhone(phone);
-  if (!p) return alert('Invalid phone number');
-  var url = 'https://wa.me/' + encodeURIComponent(p) + '?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+function toggleAll(on) {
+  var boxes = document.querySelectorAll('.mass_chk');
+  for (var i=0;i<boxes.length;i++) boxes[i].checked = !!on;
+  var all = document.getElementById('chk_all');
+  if (all) all.checked = !!on;
 }
-
-function notifyParcelRow(btn, phone) {
-  try {
-    var row = btn.closest('tr');
-    if (!row) return notifyParcel(phone);
-    var pnr = row.dataset.pnr || '';
-    var dest = row.children[3] ? row.children[3].innerText.trim() : '';
-    var date = row.children[3] ? (row.children[3].innerText.trim() || '') : '';
-    var numBoxes = row.children[4] ? row.children[4].innerText.trim() : '';
-    var lr = row.dataset.lr || '';
-    var busNo = row.dataset.busNumber || '';
-    var travelNum = row.dataset.busAssigned || '';
-    var driverPhone = row.dataset.driverPhone || '';
-    var deliveryAddr = decodeURIComponent(row.dataset.deliveryAddr || '');
-    var status = row.dataset.status || '1';
-    notifyParcel(phone, pnr, dest, date, numBoxes, lr, busNo, travelNum, driverPhone, deliveryAddr, status);
-  } catch(e) { notifyParcel(phone); }
+function submitMassAssign() {
+  var checked = Array.prototype.slice.call(document.querySelectorAll('.mass_chk:checked'));
+  if (checked.length === 0) { alert('Select at least 1 parcel'); return false; }
+  var form = document.getElementById('massAssignForm');
+  if (!form) return false;
+  Array.prototype.slice.call(form.querySelectorAll('input[name=\"ids\"]')).forEach(function(n){ n.remove(); });
+  checked.forEach(function(ch){
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'ids';
+    inp.value = ch.value;
+    form.appendChild(inp);
+  });
+  return true;
 }
 </script>

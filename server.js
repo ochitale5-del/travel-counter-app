@@ -1,6 +1,7 @@
 try { require('dotenv').config(); } catch (e) {}
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 const { init } = require('./db/schema');
 const { requireAuth, optionalUser } = require('./middleware/auth');
@@ -58,6 +59,21 @@ app.use('/reports', reportsRoutes);
 app.use('/admin', adminRoutes);
 
 app.use('/assets', express.static(path.join(__dirname, 'public')));
+
+// Public media access for WhatsApp attachments (PDFs).
+// Protect with MEDIA_TOKEN=<random> in environment.
+app.get('/media/:filename', (req, res) => {
+  const token = String(req.query.token || '');
+  if (!process.env.MEDIA_TOKEN || token !== process.env.MEDIA_TOKEN) {
+    return res.status(403).send('Forbidden');
+  }
+  const filename = String(req.params.filename || '');
+  if (!filename.toLowerCase().endsWith('.pdf')) return res.status(400).send('Bad request');
+  const safe = path.basename(filename);
+  const full = path.join(__dirname, 'data', 'tickets', safe);
+  if (!fs.existsSync(full)) return res.status(404).send('Not found');
+  res.sendFile(full);
+});
 
 // Health endpoint for containers/load balancers
 app.get('/health', (req, res) => {

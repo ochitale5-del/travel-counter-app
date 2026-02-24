@@ -1,30 +1,34 @@
-// WhatsApp notifications. Configure with Twilio or WhatsApp Business API.
-// Set WHATSAPP_ENABLED=1 and add credentials in .env to enable.
+// WhatsApp notifications: simplified to always return a wa.me URL
+// (no Twilio usage). The app will redirect users to WhatsApp Web/mobile
+// with a prefilled message. Attachments are not supported by wa.me URLs.
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const whatsappFrom = process.env.TWILIO_WHATSAPP_FROM; // e.g. whatsapp:+14155238886
-
-async function sendWhatsApp(toPhone, message) {
-  const enabled = process.env.WHATSAPP_ENABLED === '1';
-  if (!enabled || !accountSid || !authToken) {
-    console.log('[WhatsApp] Not configured. Would send to', toPhone, ':', message.slice(0, 50) + '...');
-    return { ok: true, skipped: true };
+function normalizeToE164Indian(phone) {
+  const raw = String(phone || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('+')) {
+    const cleaned = '+' + raw.slice(1).replace(/\D/g, '');
+    if (cleaned.length >= 11) return cleaned;
   }
-  const to = toPhone.replace(/^0/, '+91').replace(/\D/g, '');
-  const toWa = to.length === 10 ? `whatsapp:+91${to}` : `whatsapp:${to}`;
-  try {
-    const client = require('twilio')(accountSid, authToken);
-    await client.messages.create({
-      from: whatsappFrom || 'whatsapp:+14155238886',
-      to: toWa,
-      body: message
-    });
-    return { ok: true };
-  } catch (err) {
-    console.error('WhatsApp send error:', err.message);
-    return { ok: false, error: err.message };
-  }
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (digits.length > 10) return `+${digits}`;
+  return null;
 }
 
-module.exports = { sendWhatsApp };
+function waMeUrl(toPhone, message) {
+  const e164 = normalizeToE164Indian(toPhone);
+  if (!e164) return null;
+  const waNumber = e164.replace('+', '');
+  return `https://wa.me/${encodeURIComponent(waNumber)}?text=${encodeURIComponent(message || '')}`;
+}
+
+// Keep the same function signature used across routes. Instead of attempting
+// to call an API, always return the wa.me fallback URL so callers can redirect.
+async function sendWhatsApp(toPhone, message /*, mediaUrls ignored */) {
+  const url = waMeUrl(toPhone, message);
+  if (!url) return { ok: false, error: 'Invalid phone number' };
+  return { ok: true, skipped: true, fallbackUrl: url };
+}
+
+module.exports = { sendWhatsApp, waMeUrl, normalizeToE164Indian };

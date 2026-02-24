@@ -87,188 +87,292 @@ function drawFooter(doc) {
     .text('Thank you for travelling with us!', { align: 'center' });
 }
 
-function passengerPartA(booking) {
+function passengerPartA_A4(booking) {
   return new Promise((resolve, reject) => {
-    const filename = `passenger-${booking.pnr}-partA.pdf`;
+    const filename = `passenger-${booking.pnr}-partA-A4.pdf`;
     const filepath = path.join(outputDir, filename);
-    const doc = new PDFDocument({ size: 'A5', margin: 30 });
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
-    drawHeader(doc, 'Passenger Ticket - Part A (Customer Copy)');
+    drawHeader(doc, 'Passenger Ticket (A4 Copy)');
 
-    // PNR row
     doc
-      .fontSize(10)
+      .fontSize(11)
       .fillColor('#555555')
       .text(`PNR: ${booking.pnr}`, { align: 'right' });
-    doc.moveDown(0.2);
+    doc.moveDown(0.4);
 
-    // Passenger section
-    doc
-      .fontSize(12)
-      .fillColor('#000000')
-      .text('Passenger Details', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
-    doc.text(`Name: ${booking.customer_name || ''}`);
+    const from = titleCase(booking.from_place);
+    const to = titleCase(booking.destination);
+
+    doc.fontSize(13).fillColor('#000000').text('Passenger & Journey', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11);
+    doc.text(`Passenger: ${booking.customer_name || ''}`);
     doc.text(`Phone: ${booking.customer_phone || ''}`);
     if (booking.customer_email) doc.text(`Email: ${booking.customer_email}`);
     if (booking.customer_age) doc.text(`Age: ${booking.customer_age}`);
-    doc.moveDown(0.5);
+    if (booking.boarding_point) doc.text(`Boarding point: ${booking.boarding_point}`);
+    doc.moveDown(0.4);
+    doc.text(`From: ${from}`);
+    doc.text(`To: ${to}`);
+    doc.text(`Date: ${booking.travel_date || ''}`);
+    doc.text(`Seat(s): ${booking.seat_number || ''}`);
+    doc.text(`Operator: ${booking.bus_operator || ''}`);
+    doc.text(`Departure: ${to12Hour(booking.departure_time)}`);
+    doc.moveDown(0.6);
+
+    doc.fontSize(13).text('Fare', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11).text(`Fare collected: ${formatCurrency(booking.total_fare)}`);
+
+    drawFooter(doc);
+    doc.end();
+
+    stream.on('finish', () => resolve({ filepath, filename }));
+    stream.on('error', reject);
+  });
+}
+
+function createThermalDoc() {
+  // 80mm paper width ≈ 226.77 pt
+  const doc = new PDFDocument({ size: [226.77, 520], margin: 12 });
+  // mark the document so helpers can adjust layout/font if needed
+  doc._isThermal = true;
+  return doc;
+}
+
+function passengerPartA(booking) {
+  return new Promise((resolve, reject) => {
+    const filename = `passenger-${booking.pnr}-partA-thermal.pdf`;
+    const filepath = path.join(outputDir, filename);
+    const doc = createThermalDoc();
+
+    const stream = fs.createWriteStream(filepath);
+    doc.pipe(stream);
+
+    drawHeader(doc, 'Passenger Ticket - Part A (Thermal)');
+
+    // PNR row - bold and large for readability
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000').text(`PNR: ${booking.pnr}`, { align: 'right' });
+    doc.moveDown(0.3);
+
+    // Passenger section - bold headings, larger body
+    doc.font('Helvetica-Bold').fontSize(14).text('Passenger Details', { underline: true });
+    doc.moveDown(0.35);
+    doc.font('Helvetica').fontSize(12);
+    doc.text(`Name: ${booking.customer_name || ''}`);
+    doc.moveDown(0.15);
+    doc.text(`Phone: ${booking.customer_phone || ''}`);
+    if (booking.customer_email) { doc.moveDown(0.1); doc.text(`Email: ${booking.customer_email}`); }
+    if (booking.customer_age) { doc.moveDown(0.1); doc.text(`Age: ${booking.customer_age}`); }
+    doc.moveDown(0.4);
 
     // Journey section
     const from = titleCase(booking.from_place);
     const to = titleCase(booking.destination);
 
-    doc
-      .fontSize(12)
-      .text('Journey Details', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(14).text('Journey Details', { underline: true });
+    doc.moveDown(0.35);
+    doc.font('Helvetica').fontSize(12);
     doc.text(`From: ${from}`);
+    doc.moveDown(0.12);
     doc.text(`To: ${to}`);
+    doc.moveDown(0.12);
     doc.text(`Date: ${booking.travel_date || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Seat: ${booking.seat_number || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Operator: ${booking.bus_operator || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Departure: ${to12Hour(booking.departure_time)}`);
-    doc.moveDown(0.5);
+    doc.moveDown(0.45);
 
-    // Fare section (customer-facing only)
-    doc
-      .fontSize(12)
-      .text('Fare Details', { underline: true });
+    // Fare section (customer-facing only) - visible but spaced
+    doc.font('Helvetica-Bold').fontSize(14).text('Fare Details', { underline: true });
     doc.moveDown(0.25);
-    doc.fontSize(10);
-    doc.text(`Fare collected: ${formatCurrency(booking.total_fare)}`);
+    doc.font('Helvetica').fontSize(12).text(`Fare collected: ${formatCurrency(booking.total_fare)}`);
     doc.moveDown(0.6);
 
-    doc
-      .fontSize(9)
-      .fillColor('#555555')
-      .text('- Customer Copy -', { align: 'center' });
-
-    doc
-      .fontSize(9)
-      .fillColor('#555555')
-      .text('- Thank you for your business. Have a safe journey! -', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#555555').text('- Customer Copy -', { align: 'center' });
 
     drawFooter(doc);
     doc.end();
 
-    stream.on('finish', () => resolve(filepath));
+    stream.on('finish', () => resolve({ filepath, filename }));
     stream.on('error', reject);
   });
 }
 
 function passengerPartB(booking) {
   return new Promise((resolve, reject) => {
-    const filename = `passenger-${booking.pnr}-partB.pdf`;
+    const filename = `passenger-${booking.pnr}-partB-thermal.pdf`;
     const filepath = path.join(outputDir, filename);
-    const doc = new PDFDocument({ size: 'A5', margin: 30 });
+    const doc = createThermalDoc();
 
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
-    drawHeader(doc, 'Passenger Ticket - Part B (Driver Copy)');
+    drawHeader(doc, 'Passenger Ticket - Part B (Thermal)');
 
-    doc
-      .fontSize(10)
-      .fillColor('#555555')
-      .text(`PNR: ${booking.pnr}`, { align: 'right' });
-    doc.moveDown(0.2);
+    // PNR - big and bold for driver visibility
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000').text(`PNR: ${booking.pnr}`, { align: 'right' });
+    doc.moveDown(0.3);
 
-    doc
-      .fontSize(12)
-      .fillColor('#000000')
-      .text('Passenger Details', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000').text('Passenger Details', { underline: true });
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(12);
     doc.text(`Name: ${booking.customer_name || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Phone: ${booking.customer_phone || ''}`);
-    doc.moveDown(0.5);
+    doc.moveDown(0.4);
 
     const from = titleCase(booking.from_place);
     const to = titleCase(booking.destination);
 
-    doc
-      .fontSize(12)
-      .text('Journey Details', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(14).text('Journey Details', { underline: true });
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(12);
     doc.text(`From: ${from}`);
+    doc.moveDown(0.12);
     doc.text(`To: ${to}`);
+    doc.moveDown(0.12);
     doc.text(`Date: ${booking.travel_date || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Seat: ${booking.seat_number || ''}`);
+    doc.moveDown(0.12);
     doc.text(`Operator: ${booking.bus_operator || ''}`);
-    doc.text(`Departure: ${to12Hour(booking.departure_time)}`);
-    doc.moveDown(0.6);
+    doc.moveDown(0.5);
 
-    doc
-      .fontSize(9)
-      .fillColor('#555555')
-      .text('Part B - Driver copy (no fare / commission details)', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#555555').text('Driver copy', { align: 'center' });
 
     drawFooter(doc);
 
     doc.end();
 
-    stream.on('finish', () => resolve(filepath));
+    stream.on('finish', () => resolve({ filepath, filename }));
     stream.on('error', reject);
   });
 }
 
 function parcelPartB(booking) {
   return new Promise((resolve, reject) => {
-    const filename = `parcel-${booking.pnr}-partB.pdf`;
+    const filename = `parcel-${booking.pnr}-partB-thermal.pdf`;
     const filepath = path.join(outputDir, filename);
-    const doc = new PDFDocument({ size: 'A5', margin: 30 });
+    const doc = createThermalDoc();
 
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
-    drawHeader(doc, 'Parcel Waybill - Part B (Driver Copy)');
+    drawHeader(doc, 'Parcel Waybill - Part B (Thermal)');
 
-    doc
-      .fontSize(10)
-      .fillColor('#555555')
-      .text(`PNR: ${booking.pnr}`, { align: 'right' });
-    doc.moveDown(0.2);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000').text(`PNR: ${booking.pnr}`, { align: 'right' });
+    doc.moveDown(0.3);
 
-    doc
-      .fontSize(12)
-      .fillColor('#000000')
-      .text('Sender / Receiver', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
-    doc.text(`Sender: ${booking.sender_name || ''} | ${booking.sender_phone || ''}`);
-    doc.text(`Receiver: ${booking.receiver_name || ''} | ${booking.receiver_phone || ''}`);
-    doc.moveDown(0.5);
+    doc.font('Helvetica-Bold').fontSize(14).text('Sender / Receiver', { underline: true });
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(12);
+    doc.text(`Sender: ${booking.sender_name || ''}`);
+    doc.moveDown(0.12);
+    doc.text(`Phone: ${booking.sender_phone || ''}`);
+    doc.moveDown(0.18);
+    doc.text(`Receiver: ${booking.receiver_name || ''}`);
+    doc.moveDown(0.12);
+    doc.text(`Phone: ${booking.receiver_phone || ''}`);
+    doc.moveDown(0.4);
 
     const destination = titleCase(booking.destination);
 
-    doc
-      .fontSize(12)
-      .text('Parcel / Journey', { underline: true });
-    doc.moveDown(0.25);
-    doc.fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(14).text('Parcel / Journey', { underline: true });
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(12);
     doc.text(`Destination: ${destination}`);
-    doc.text(`Boxes: ${booking.num_boxes || 0}`);
-    if (booking.bus_assigned) doc.text(`Bus: ${booking.bus_assigned}`);
-    if (booking.bus_departure_time) doc.text(`Departure: ${to12Hour(booking.bus_departure_time)}`);
-    doc.moveDown(0.6);
+    doc.moveDown(0.12);
+    doc.text(`No. of parcels: ${booking.num_boxes || 0}`);
+    if (booking.bus_assigned) { doc.moveDown(0.12); doc.text(`Bus: ${booking.bus_assigned}`); }
+    if (booking.bus_number) { doc.moveDown(0.12); doc.text(`Bus no: ${booking.bus_number}`); }
+    if (booking.bus_departure_time) { doc.moveDown(0.12); doc.text(`Departure: ${to12Hour(booking.bus_departure_time)}`); }
+    doc.moveDown(0.4);
 
-    doc
-      .fontSize(9)
-      .fillColor('#555555')
-      .text('Driver copy (no rate / commission details)', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#555555').text('Driver copy', { align: 'center' });
 
     drawFooter(doc);
 
     doc.end();
 
-    stream.on('finish', () => resolve(filepath));
+    stream.on('finish', () => resolve({ filepath, filename }));
+    stream.on('error', reject);
+  });
+}
+
+function parcelReceipt_A4(booking) {
+  return new Promise((resolve, reject) => {
+    const filename = `parcel-${booking.pnr}-receipt-A4.pdf`;
+    const filepath = path.join(outputDir, filename);
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+
+    const stream = fs.createWriteStream(filepath);
+    doc.pipe(stream);
+
+    drawHeader(doc, 'Parcel Receipt (A4 Copy)');
+
+    doc
+      .fontSize(11)
+      .fillColor('#555555')
+      .text(`PNR: ${booking.pnr}`, { align: 'right' });
+    doc.moveDown(0.4);
+
+    const destination = titleCase(booking.destination);
+
+    doc.fontSize(13).fillColor('#000000').text('Sender / Receiver', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11);
+    doc.text(`Sender: ${booking.sender_name || ''} | ${booking.sender_phone || ''}`);
+    if (booking.sender_address) doc.text(`Sender address: ${booking.sender_address}`);
+    doc.moveDown(0.2);
+    doc.text(`Receiver: ${booking.receiver_name || ''} | ${booking.receiver_phone || ''}`);
+    if (booking.receiver_address) doc.text(`Receiver address: ${booking.receiver_address}`);
+    doc.moveDown(0.5);
+
+    doc.fontSize(13).text('Parcel', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11);
+    doc.text(`Destination: ${destination}`);
+    doc.text(`Boxes: ${booking.num_boxes || 0}`);
+
+    const baseRate = (Number(booking.price_per_box) || 0) * (Number(booking.num_boxes) || 0);
+    const loading = Number(booking.loading_charges) || 0;
+    const unloading = Number(booking.unloading_charges) || 0;
+    const total = baseRate + loading + unloading;
+
+    doc.moveDown(0.4);
+    doc.fontSize(13).text('Charges', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11);
+    doc.text(`Base rate: ${formatCurrency(baseRate)}`);
+    doc.text(`Loading charges: ${formatCurrency(loading)}`);
+    doc.text(`Unloading charges: ${formatCurrency(unloading)}`);
+    doc.text(`Total collected: ${formatCurrency(total)}`);
+
+    if (booking.bus_assigned || booking.bus_departure_time) {
+      doc.moveDown(0.5);
+      doc.fontSize(13).text('Bus assignment', { underline: true });
+      doc.moveDown(0.3);
+      doc.fontSize(11);
+      if (booking.bus_assigned) doc.text(`Bus / Operator: ${booking.bus_assigned}`);
+      if (booking.bus_number) doc.text(`Bus number: ${booking.bus_number}`);
+      if (booking.driver_name) doc.text(`Driver: ${booking.driver_name}`);
+      if (booking.driver_phone) doc.text(`Driver phone: ${booking.driver_phone}`);
+      if (booking.lr_number) doc.text(`LR number: ${booking.lr_number}`);
+      if (booking.bus_departure_time) doc.text(`Departure: ${to12Hour(booking.bus_departure_time)}`);
+    }
+
+    drawFooter(doc);
+    doc.end();
+
+    stream.on('finish', () => resolve({ filepath, filename }));
     stream.on('error', reject);
   });
 }
@@ -294,42 +398,56 @@ function reportPdf(from, to, summary, passengers, parcels) {
     doc.text(`Parcel bookings: ${summary.parcelCount}`);
     doc.moveDown(0.8);
 
-    // Passenger table
-    doc.fontSize(12).text('Passenger bookings', { underline: true });
-    doc.moveDown(0.3);
-    doc.fontSize(9);
-    const passHeaders = ['PNR', 'Customer', 'Destination', 'Date', 'Rate fare', 'Operator', 'Booked by'];
-    const passCols = [60, 90, 90, 60, 70, 90, 90];
-    let x = doc.page.margins.left;
-    let y = doc.y;
-    passHeaders.forEach((h, i) => {
-      doc.text(h, x, y, { width: passCols[i], continued: i < passHeaders.length - 1 });
-      x += passCols[i];
-    });
-    doc.moveDown(0.2);
-    y = doc.y;
-    passengers.forEach((p) => {
-      x = doc.page.margins.left;
-      const dest = titleCase(p.destination);
-      const row = [
-        p.pnr,
-        p.customer_name || '',
-        dest,
-        p.travel_date || '',
-        formatCurrency(p.total_fare),
-        p.bus_operator || '',
-        p.employee_name || '',
-      ];
-      row.forEach((val, i) => {
-        doc.text(String(val), x, y, { width: passCols[i], continued: i < row.length - 1 });
-        x += passCols[i];
+    function drawTable(headers, colWidths, rows) {
+      const startX = doc.page.margins.left;
+      const rowH = 14;
+      let y = doc.y;
+
+      // header background
+      doc.save();
+      doc.rect(startX, y - 2, colWidths.reduce((a, b) => a + b, 0), rowH + 4).fill('#f2f2f2');
+      doc.restore();
+
+      doc.fillColor('#000000').fontSize(9);
+      let x = startX;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 2, y, { width: colWidths[i] - 4, align: 'left' });
+        x += colWidths[i];
       });
-      y += 12;
-      if (y > doc.page.height - doc.page.margins.bottom - 80) {
-        doc.addPage();
-        y = doc.page.margins.top;
-      }
-    });
+      y += rowH + 6;
+
+      rows.forEach((r) => {
+        if (y > doc.page.height - doc.page.margins.bottom - 40) {
+          doc.addPage();
+          y = doc.page.margins.top;
+        }
+        x = startX;
+        r.forEach((val, i) => {
+          doc.text(String(val), x + 2, y, { width: colWidths[i] - 4, align: 'left' });
+          x += colWidths[i];
+        });
+        y += rowH;
+      });
+
+      doc.moveDown(0.5);
+      doc.y = y;
+    }
+
+    // Passenger table
+    doc.fontSize(12).fillColor('#000000').text('Passenger bookings', { underline: true });
+    doc.moveDown(0.3);
+    const passHeaders = ['PNR', 'Customer', 'Destination', 'Date', 'Rate fare', 'Operator', 'Booked by'];
+    const passCols = [70, 110, 110, 70, 80, 110, 110];
+    const passRows = passengers.map((p) => [
+      p.pnr,
+      p.customer_name || '',
+      titleCase(p.destination),
+      p.travel_date || '',
+      formatCurrency(p.total_fare),
+      p.bus_operator || '',
+      p.employee_name || '',
+    ]);
+    drawTable(passHeaders, passCols, passRows);
 
     doc.addPage();
 
@@ -340,18 +458,8 @@ function reportPdf(from, to, summary, passengers, parcels) {
     doc.fontSize(9);
 
     const parcelHeaders = ['PNR', 'Sender', 'Receiver', 'Destination', 'Boxes', 'Rate', 'Status'];
-    const parcelCols = [60, 90, 90, 90, 40, 70, 80];
-    x = doc.page.margins.left;
-    y = doc.y;
-    parcelHeaders.forEach((h, i) => {
-      doc.text(h, x, y, { width: parcelCols[i], continued: i < parcelHeaders.length - 1 });
-      x += parcelCols[i];
-    });
-    doc.moveDown(0.2);
-    y = doc.y;
-
-    parcels.forEach((p) => {
-      x = doc.page.margins.left;
+    const parcelCols = [70, 120, 120, 120, 50, 90, 90];
+    const parcelRows = parcels.map((p) => {
       const dest = titleCase(p.destination);
       const rate =
         p.rate_fare && p.rate_fare > 0
@@ -362,7 +470,7 @@ function reportPdf(from, to, summary, passengers, parcels) {
       let status = 'Pending';
       if (p.part_b_returned) status = 'Completed';
       else if (p.bus_assigned) status = 'On bus';
-      const row = [
+      return [
         p.pnr,
         p.sender_name || '',
         p.receiver_name || '',
@@ -371,16 +479,8 @@ function reportPdf(from, to, summary, passengers, parcels) {
         formatCurrency(rate),
         status,
       ];
-      row.forEach((val, i) => {
-        doc.text(String(val), x, y, { width: parcelCols[i], continued: i < row.length - 1 });
-        x += parcelCols[i];
-      });
-      y += 12;
-      if (y > doc.page.height - doc.page.margins.bottom - 80) {
-        doc.addPage();
-        y = doc.page.margins.top;
-      }
     });
+    drawTable(parcelHeaders, parcelCols, parcelRows);
 
     drawFooter(doc);
 
@@ -391,4 +491,12 @@ function reportPdf(from, to, summary, passengers, parcels) {
   });
 }
 
-module.exports = { passengerPartA, passengerPartB, parcelPartB, reportPdf, outputDir };
+module.exports = {
+  passengerPartA,
+  passengerPartB,
+  passengerPartA_A4,
+  parcelPartB,
+  parcelReceipt_A4,
+  reportPdf,
+  outputDir,
+};

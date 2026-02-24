@@ -39,9 +39,12 @@
         <td>₹<%= Number(b.commission).toFixed(2) %></td>
         <td><%= b.created_by_name || '—' %></td>
         <td>
-          <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank">Part A</a>
+          <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank">Print Part A (Thermal)</a>
           <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
-          <button type="button" class="btn btn-sm" onclick="notifyBooking('<%= (b.customer_phone||'') %>', '<%= (b.pnr||'') %>', '<%= (b.from_place||'') %>', '<%= (b.destination||'') %>', '<%= (b.travel_date||'') %>', '<%= (b.departure_time||'') %>', '<%= (b.seat_number||'') %>', '<%= (b.bus_operator||'') %>', '<%= (b.boarding_point||'') %>')">Notify on WhatsApp</button>
+          <a href="/bookings/<%= b.id %>/part-b" class="btn btn-sm btn-ghost" target="_blank">Print Part B (Thermal)</a>
+          <form action="/bookings/<%= b.id %>/notify-whatsapp" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm">Notify on WhatsApp (A4 PDF)</button>
+          </form>
         </td>
       </tr>
       <% }); %>
@@ -49,41 +52,7 @@
   </table>
   </div>
 </div>
-  <script>
-  function pad(n){return String(n).padStart(2,'0');}
-  function to12(h,m){ var period = h>=12 ? 'PM':'AM'; var hh = h%12; if(hh===0) hh=12; return hh+':'+pad(m)+' '+period; }
-  function notifyBooking(phone, pnr, src, dest, date, departure, seat, operator, boarding) {
-    if (!phone) return alert('No phone number');
-    var p = (phone||'').replace(/\D/g,'');
-    if (p.length === 10) p = '91' + p;
-    if (p.length === 0) return alert('Invalid phone');
-    var depParts = (departure||'').split(':');
-    var repText = '';
-    if (depParts.length>=2) {
-      var h = parseInt(depParts[0],10)||0; var m = parseInt(depParts[1],10)||0;
-      var total = h*60 + m - 15;
-      if (total < 0) total += 24*60;
-      var rh = Math.floor(total/60); var rm = total%60;
-      repText = to12(rh, rm);
-    }
-    var seatsCount = 1;
-    try { seatsCount = (seat||'').toString().split(/[,;\\/ ]+/).filter(Boolean).length || 1; } catch(e){}
-    var msg = 'Good news — your booking is confirmed!\n\n' +
-      'PNR: ' + (pnr || '') + '\n' +
-      'From: ' + src + '\n' +
-      'To: ' + dest + '\n' +
-      'Date: ' + date + '\n' +
-      'Departure: ' + (departure ? departure : 'TBD') + '\n' +
-      'Reporting time: ' + (repText || '15 minutes before') + '\n' +
-      'No. of seats: ' + seatsCount + '\n' +
-      'Seat(s): ' + (seat || 'N/A') + '\n' +
-      'Operator: ' + (operator || 'N/A') + '\n' +
-      'Boarding point: ' + (boarding || 'N/A') + '\n\n' +
-      'Relax — arrive at the reporting point a little early and we will take care of the rest. Have a pleasant journey!';
-    var url = 'https://wa.me/' + encodeURIComponent(p) + '?text=' + encodeURIComponent(msg);
-    window.open(url, '_blank');
-  }
-  </script>
+  <!-- WhatsApp notifications are handled server-side to ensure correct data + optional A4 PDF attachment -->
 <script>
 document.addEventListener('DOMContentLoaded', function(){
   try {
