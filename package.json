@@ -4,7 +4,7 @@
   "description": "Travel counter management for Mumbai travel agency",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node db/seed.js && node server.js",
     "seed": "node db/seed.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
