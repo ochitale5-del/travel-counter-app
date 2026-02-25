@@ -20,6 +20,19 @@ const adminRoutes = require('./routes/admin');
 
 init();
 
+// Auto-seed default users on every startup
+try {
+  const bcrypt = require('bcryptjs');
+  const hash = bcrypt.hashSync('admin123', 10);
+  const insert = db.prepare(`INSERT OR IGNORE INTO employees (name, username, password_hash, role) VALUES (?, ?, ?, ?)`);
+  insert.run('Admin', 'admin', hash, 'admin');
+  insert.run('Staff One', 'staff1', hash, 'staff');
+  insert.run('Staff Two', 'staff2', hash, 'staff');
+  console.log('Default users seeded.');
+} catch(e) {
+  console.log('Seed skipped:', e.message);
+}
+
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
