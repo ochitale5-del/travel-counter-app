@@ -60,7 +60,7 @@
             <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
             <a href="/bookings/<%= b.id %>/part-b" class="btn btn-sm btn-ghost" target="_blank">Print Part B (Thermal)</a>
             <form action="/bookings/<%= b.id %>/notify-whatsapp" method="post" style="display:inline;">
-              <button type="submit" class="btn btn-sm" style="background:#ffb300; color:#000;">Notify on WhatsApp (A4 PDF)</button>
+              <button type="submit" class="btn btn-sm" style="background:#ffb300; color:#000;">Notify on WhatsApp</button>
             </form>
             <% if (user && user.role === 'admin') { %>
               <form action="/bookings/<%= b.id %>/delete" method="post" style="display:inline-block;" onsubmit="return confirm('Delete booking <%= b.pnr %>? This cannot be undone.')">
