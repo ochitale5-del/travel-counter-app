@@ -100,31 +100,38 @@
         <td><%= p.bus_assigned || '—' %><% if (p.bus_departure_time) { %><br><span class="text-muted"><%= time12(p.bus_departure_time) %></span><% } %></td>
         <!-- part_b_returned cell removed -->
         <td>
-          <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Print Part B (Thermal)</a>
-          <button type="button" class="btn btn-sm btn-ghost" onclick="assignBus(<%= p.id %>, '<%= p.bus_assigned||'' %>', '<%= p.bus_departure_time||'' %>', '<%= p.bus_number||'' %>', '<%= p.driver_name||'' %>', '<%= p.driver_phone||'' %>', '<%= p.lr_number||'' %>')"><%= p.bus_assigned ? 'Edit bus' : 'Assign bus' %></button>
-          <a href="/parcels/<%= p.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
-          <a href="/parcels/<%= p.id %>" class="btn btn-sm btn-ghost">Edit delivery</a>
-          <% if (!p.part_b_returned) { %>
-          <form action="/parcels/<%= p.id %>/mark-part-b-returned" method="post" style="display:inline;">
-            <button type="submit" class="btn btn-sm btn-ghost">Mark returned</button>
-          </form>
-          <% } %>
-          <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline;">
-            <input type="hidden" name="who" value="sender">
-            <button type="submit" class="btn btn-sm">Notify Sender (A4 PDF)</button>
-          </form>
-          <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline; margin-left:0.5rem;">
-            <input type="hidden" name="who" value="receiver">
-            <button type="submit" class="btn btn-sm">Notify Receiver (A4 PDF)</button>
-          </form>
-          <form action="/parcels/update-status" method="post" style="display:inline; margin-left:0.5rem;">
-            <input type="hidden" name="id" value="<%= p.id %>">
-            <select name="status" style="padding:3px;">
-              <option value="1" <%= (p.status||1)==1 ? 'selected' : '' %>>Booked</option>
-              <option value="2" <%= (p.status||1)==2 ? 'selected' : '' %>>Dispatched</option>
-            </select>
-            <button type="submit" class="btn btn-sm btn-ghost">Set</button>
-          </form>
+          <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:flex-start;">
+            <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank" style="background:#f0ad4e; color:#000;">Print Part B (Thermal)</a>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="assignBus(<%= p.id %>, '<%= p.bus_assigned||'' %>', '<%= p.bus_departure_time||'' %>', '<%= p.bus_number||'' %>', '<%= p.driver_name||'' %>', '<%= p.driver_phone||'' %>', '<%= p.lr_number||'' %>')"><%= p.bus_assigned ? 'Edit bus' : 'Assign bus' %></button>
+            <a href="/parcels/<%= p.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
+            <a href="/parcels/<%= p.id %>" class="btn btn-sm btn-ghost">Edit delivery</a>
+            <% if (!p.part_b_returned) { %>
+            <form action="/parcels/<%= p.id %>/mark-part-b-returned" method="post" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-ghost">Mark returned</button>
+            </form>
+            <% } %>
+            <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline;">
+              <input type="hidden" name="who" value="sender">
+              <button type="submit" class="btn btn-sm" style="background:#ffb300; color:#000;">Notify Sender (A4 PDF)</button>
+            </form>
+            <form action="/parcels/<%= p.id %>/notify-whatsapp" method="post" style="display:inline;">
+              <input type="hidden" name="who" value="receiver">
+              <button type="submit" class="btn btn-sm" style="background:#ffb300; color:#000;">Notify Receiver (A4 PDF)</button>
+            </form>
+            <form action="/parcels/update-status" method="post" style="display:inline;">
+              <input type="hidden" name="id" value="<%= p.id %>">
+              <select name="status" style="padding:3px; margin-right:0.25rem;">
+                <option value="1" <%= (p.status||1)==1 ? 'selected' : '' %>>Booked</option>
+                <option value="2" <%= (p.status||1)==2 ? 'selected' : '' %>>Dispatched</option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-ghost">Set</button>
+            </form>
+            <% if (user && user.role === 'admin') { %>
+              <form action="/parcels/<%= p.id %>/delete" method="post" style="display:inline-block;" onsubmit="return confirm('Delete parcel <%= p.pnr %>? This cannot be undone.')">
+                <button type="submit" class="btn btn-sm" style="background:#d9534f; color:#fff;">Delete</button>
+              </form>
+            <% } %>
+          </div>
         </td>
       </tr>
       <% }); %>

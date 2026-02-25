@@ -39,12 +39,19 @@
         <td>₹<%= Number(b.commission).toFixed(2) %></td>
         <td><%= b.created_by_name || '—' %></td>
         <td>
-          <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank">Print Part A (Thermal)</a>
-          <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
-          <a href="/bookings/<%= b.id %>/part-b" class="btn btn-sm btn-ghost" target="_blank">Print Part B (Thermal)</a>
-          <form action="/bookings/<%= b.id %>/notify-whatsapp" method="post" style="display:inline;">
-            <button type="submit" class="btn btn-sm">Notify on WhatsApp (A4 PDF)</button>
-          </form>
+          <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:flex-start;">
+            <a href="/bookings/<%= b.id %>/part-a" class="btn btn-sm" target="_blank" style="background:#f0ad4e; color:#000;">Print Part A (Thermal)</a>
+            <a href="/bookings/<%= b.id %>/edit-net" class="btn btn-sm btn-ghost">Edit net fare</a>
+            <a href="/bookings/<%= b.id %>/part-b" class="btn btn-sm btn-ghost" target="_blank">Print Part B (Thermal)</a>
+            <form action="/bookings/<%= b.id %>/notify-whatsapp" method="post" style="display:inline;">
+              <button type="submit" class="btn btn-sm" style="background:#ffb300; color:#000;">Notify on WhatsApp (A4 PDF)</button>
+            </form>
+            <% if (user && user.role === 'admin') { %>
+              <form action="/bookings/<%= b.id %>/delete" method="post" style="display:inline-block;" onsubmit="return confirm('Delete booking <%= b.pnr %>? This cannot be undone.')">
+                <button type="submit" class="btn btn-sm" style="background:#d9534f; color:#fff;">Delete</button>
+              </form>
+            <% } %>
+          </div>
         </td>
       </tr>
       <% }); %>

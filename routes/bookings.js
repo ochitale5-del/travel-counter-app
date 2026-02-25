@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../config/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { passengerPnr } = require('../services/pnr');
 const pdfService = require('../services/pdf');
 const emailService = require('../services/email');
@@ -265,6 +265,31 @@ router.post('/:id/edit-net', (req, res) => {
   `).run(netFare, id);
 
   req.session.flash = { type: 'success', message: 'Net fare updated.' };
+  res.redirect('/bookings');
+});
+
+// Delete booking (admin only)
+router.post('/:id/delete', requireAdmin, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) throw new Error('Invalid booking id');
+    const b = db.prepare('SELECT * FROM passenger_bookings WHERE id = ?').get(id);
+    if (!b) {
+      req.session.flash = { type: 'error', message: 'Booking not found.' };
+      return res.redirect('/bookings');
+    }
+
+    // Delete related operator settlements for this booking
+    db.prepare("DELETE FROM operator_settlements WHERE booking_type = 'passenger' AND booking_id = ?").run(id);
+
+    // Delete the booking itself
+    db.prepare('DELETE FROM passenger_bookings WHERE id = ?').run(id);
+
+    req.session.flash = { type: 'success', message: 'Booking deleted.' };
+  } catch (e) {
+    console.error('Delete booking error:', e && e.message);
+    req.session.flash = { type: 'error', message: 'Failed to delete booking.' };
+  }
   res.redirect('/bookings');
 });
 

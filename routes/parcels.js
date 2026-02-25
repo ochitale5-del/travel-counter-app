@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../config/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { parcelPnr } = require('../services/pnr');
 const pdfService = require('../services/pdf');
 const whatsappService = require('../services/whatsapp');
@@ -344,6 +344,29 @@ router.post('/:id/edit-net', (req, res) => {
   `).run(netFare, commission, id);
 
   req.session.flash = { type: 'success', message: 'Parcel net fare updated.' };
+  res.redirect('/parcels');
+});
+
+// Delete parcel (admin only)
+router.post('/:id/delete', requireAdmin, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) throw new Error('Invalid parcel id');
+    const p = db.prepare('SELECT * FROM parcel_bookings WHERE id = ?').get(id);
+    if (!p) {
+      req.session.flash = { type: 'error', message: 'Parcel not found.' };
+      return res.redirect('/parcels');
+    }
+
+    // Remove related operator settlements if any
+    db.prepare("DELETE FROM operator_settlements WHERE booking_type = 'parcel' AND booking_id = ?").run(id);
+
+    db.prepare('DELETE FROM parcel_bookings WHERE id = ?').run(id);
+    req.session.flash = { type: 'success', message: 'Parcel deleted.' };
+  } catch (e) {
+    console.error('Delete parcel error:', e && e.message);
+    req.session.flash = { type: 'error', message: 'Failed to delete parcel.' };
+  }
   res.redirect('/parcels');
 });
 
