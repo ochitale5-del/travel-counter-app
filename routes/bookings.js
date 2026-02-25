@@ -13,14 +13,30 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  const list = db.prepare(`
+  const startDate = (req.query.start_date || '').trim();
+  const endDate = (req.query.end_date || '').trim();
+
+  let sql = `
     SELECT pb.*, e.name AS created_by_name
     FROM passenger_bookings pb
     LEFT JOIN employees e ON e.id = pb.created_by
-    ORDER BY pb.travel_date DESC, pb.departure_time DESC
-    LIMIT 200
-  `).all();
-  res.render('bookings/list', { bookings: list });
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (startDate) {
+    sql += ` AND pb.travel_date >= ?`;
+    params.push(startDate);
+  }
+  if (endDate) {
+    sql += ` AND pb.travel_date <= ?`;
+    params.push(endDate);
+  }
+
+  sql += ` ORDER BY pb.travel_date DESC, pb.departure_time DESC LIMIT 200`;
+
+  const list = db.prepare(sql).all(...params);
+  res.render('bookings/list', { bookings: list, startDate, endDate });
 });
 
 router.get('/new', (req, res) => {

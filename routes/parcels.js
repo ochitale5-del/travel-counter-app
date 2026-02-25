@@ -12,14 +12,30 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  const list = db.prepare(`
+  const startDate = (req.query.start_date || '').trim();
+  const endDate = (req.query.end_date || '').trim();
+
+  let sql = `
     SELECT p.*, e.name AS created_by_name
     FROM parcel_bookings p
     LEFT JOIN employees e ON e.id = p.created_by
-    ORDER BY p.created_at DESC
-    LIMIT 200
-  `).all();
-  res.render('parcels/list', { parcels: list });
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (startDate) {
+    sql += ` AND DATE(p.created_at) >= ?`;
+    params.push(startDate);
+  }
+  if (endDate) {
+    sql += ` AND DATE(p.created_at) <= ?`;
+    params.push(endDate);
+  }
+
+  sql += ` ORDER BY p.created_at DESC LIMIT 200`;
+
+  const list = db.prepare(sql).all(...params);
+  res.render('parcels/list', { parcels: list, startDate, endDate });
 });
 
 router.get('/new', (req, res) => {

@@ -6,6 +6,22 @@
 <p><a href="/parcels/new" class="btn">New Parcel</a></p>
 
 <div class="card">
+  <h3>Filter by Date Range</h3>
+  <form method="get" action="/parcels" style="display:flex; gap:1rem; align-items:flex-end;">
+    <div class="form-group">
+      <label>From</label>
+      <input type="date" name="start_date" value="<%= startDate %>">
+    </div>
+    <div class="form-group">
+      <label>To</label>
+      <input type="date" name="end_date" value="<%= endDate %>">
+    </div>
+    <button type="submit" class="btn">Filter</button>
+    <a href="/parcels" class="btn btn-ghost">Clear</a>
+  </form>
+</div>
+
+<div class="card">
   <h2>Mass assign bus</h2>
   <form id="massAssignForm" method="post" action="/parcels/mass-assign-bus">
     <div class="form-row" style="grid-template-columns: repeat(6, minmax(0, 1fr)); align-items:end;">
