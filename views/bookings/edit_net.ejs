@@ -1,0 +1,26 @@
+<%- include('../partials/header', { title: 'Edit Booking Net Fare' }) %>
+<% if (typeof flash !== 'undefined' && flash) { %>
+<div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>
+<h1>Edit Net Fare — <%= booking.pnr %></h1>
+<div class="card">
+  <form method="post" action="/bookings/<%= booking.id %>/edit-net">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Rate fare (₹)</label>
+        <input type="text" value="<%= Number(booking.total_fare || 0).toFixed(2) %>" readonly>
+      </div>
+      <div class="form-group">
+        <label>Net fare (₹)</label>
+        <input type="number" name="net_fare" step="0.01" min="0" value="<%= Number(netFare).toFixed(2) %>">
+      </div>
+      <div class="form-group">
+        <label>Commission (auto)</label>
+        <input type="text" value="<%= Number(commission).toFixed(2) %>" readonly>
+      </div>
+    </div>
+    <div style="margin-top:0.5rem;"><button class="btn" type="submit">Save</button> <a class="btn btn-ghost" href="/bookings">Cancel</a></div>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

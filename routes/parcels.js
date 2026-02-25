@@ -202,7 +202,7 @@ router.post('/mass-assign-bus', async (req, res) => {
     return res.redirect('/parcels');
   }
 
-  const { bus_assigned, bus_number, driver_name, driver_phone, lr_number, dep_hour, dep_minute, dep_period } = req.body || {};
+  const { bus_assigned, bus_number, driver_name, driver_phone, lr_number, dep_hour, dep_minute, dep_period, delivery_address, delivery_contact } = req.body || {};
   let bus_departure_time = null;
   if (dep_hour && dep_minute && dep_period) {
     let hour = parseInt(dep_hour, 10);
@@ -214,7 +214,7 @@ router.post('/mass-assign-bus', async (req, res) => {
   // sanitize optional delivery contact
   let deliveryContactSan = (delivery_contact || '').replace(/\D/g, '');
   if (deliveryContactSan === '') deliveryContactSan = null;
-  const deliveryAddressSan = (delivery_address || '').trim() || null;
+  const deliveryAddressSan = (delivery_address || deliveryAddress || '').trim() || null;
 
   const update = db.prepare(
     `UPDATE parcel_bookings
