@@ -8,7 +8,6 @@ if (!fs.existsSync(dataDir)) {
 }
 
 function init() {
-  // Employees (login)
   db.exec(`
     CREATE TABLE IF NOT EXISTS employees (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +20,6 @@ function init() {
     )
   `);
 
-  // Customers (for auto-fill)
   db.exec(`
     CREATE TABLE IF NOT EXISTS customers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +33,6 @@ function init() {
     )
   `);
 
-  // Passenger bookings
   db.exec(`
     CREATE TABLE IF NOT EXISTS passenger_bookings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +58,6 @@ function init() {
     )
   `);
 
-  // Parcel bookings
   db.exec(`
     CREATE TABLE IF NOT EXISTS parcel_bookings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,11 +80,11 @@ function init() {
       net_fare REAL NOT NULL DEFAULT 0,
       commission REAL NOT NULL DEFAULT 0,
       bus_assigned TEXT,
-      bus_departure_time TEXT, 
-      bus_number TEXT, 
+      bus_departure_time TEXT,
+      bus_number TEXT,
       driver_name TEXT,
       driver_phone TEXT,
-      lr_number TEXT, 
+      lr_number TEXT,
       part_b_returned INTEGER DEFAULT 0,
       created_by INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -96,7 +92,6 @@ function init() {
     )
   `);
 
-  // Operator settlement tracking (amount owed per operator from passenger bookings)
   db.exec(`
     CREATE TABLE IF NOT EXISTS operator_settlements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,49 +105,6 @@ function init() {
     )
   `);
 
-  // Backfill columns for older databases (ignore errors if columns already exist)
-  try {
-    db.exec('ALTER TABLE passenger_bookings ADD COLUMN net_fare REAL NOT NULL DEFAULT 0');
-  } catch (e) {}
-
-  try {
-    db.exec('ALTER TABLE passenger_bookings ADD COLUMN boarding_point TEXT');
-  } catch (e) {}
-
-  try {
-    db.exec('ALTER TABLE employees ADD COLUMN active INTEGER NOT NULL DEFAULT 1');
-  } catch (e) {}
-
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN rate_fare REAL NOT NULL DEFAULT 0');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN net_fare REAL NOT NULL DEFAULT 0');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN commission REAL NOT NULL DEFAULT 0');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN delivery_address TEXT');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN delivery_contact TEXT');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE parcel_bookings ADD COLUMN status INTEGER NOT NULL DEFAULT 1');
-  } catch (e) {}
-
-  // Indexes
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_passenger_pnr ON passenger_bookings(pnr);
-    CREATE INDEX IF NOT EXISTS idx_passenger_date ON passenger_bookings(travel_date);
-    CREATE INDEX IF NOT EXISTS idx_passenger_operator ON passenger_bookings(bus_operator);
-    CREATE INDEX IF NOT EXISTS idx_parcel_pnr ON parcel_bookings(pnr);
-    CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
-    CREATE INDEX IF NOT EXISTS idx_operator_settlements_name ON operator_settlements(operator_name);
-  `);
-
-  // Activity log for audit (records every request / action)
   db.exec(`
     CREATE TABLE IF NOT EXISTS activity_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,6 +120,43 @@ function init() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pnr_counter (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_pnr INTEGER NOT NULL DEFAULT 999
+    )
+  `);
+  db.prepare(`INSERT OR IGNORE INTO pnr_counter (id, last_pnr) VALUES (1, 999)`).run();
+
+  // Backfill columns for older databases
+  try { db.exec('ALTER TABLE passenger_bookings ADD COLUMN net_fare REAL NOT NULL DEFAULT 0'); } catch (e) {}
+  try { db.exec('ALTER TABLE passenger_bookings ADD COLUMN boarding_point TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE employees ADD COLUMN active INTEGER NOT NULL DEFAULT 1'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN rate_fare REAL NOT NULL DEFAULT 0'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN net_fare REAL NOT NULL DEFAULT 0'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN commission REAL NOT NULL DEFAULT 0'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN delivery_address TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN delivery_contact TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN status INTEGER NOT NULL DEFAULT 1'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN bus_number TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN driver_name TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN driver_phone TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE parcel_bookings ADD COLUMN lr_number TEXT'); } catch (e) {}
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_passenger_pnr ON passenger_bookings(pnr);
+    CREATE INDEX IF NOT EXISTS idx_passenger_date ON passenger_bookings(travel_date);
+    CREATE INDEX IF NOT EXISTS idx_passenger_operator ON passenger_bookings(bus_operator);
+    CREATE INDEX IF NOT EXISTS idx_parcel_pnr ON parcel_bookings(pnr);
+    CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+    CREATE INDEX IF NOT EXISTS idx_operator_settlements_name ON operator_settlements(operator_name);
+  `);
 }
 
-module.exports = { init };
+function generatePNR() {
+  const row = db.prepare(`UPDATE pnr_counter SET last_pnr = last_pnr + 1 WHERE id = 1 RETURNING last_pnr`).get();
+  return String(row.last_pnr);
+}
+
+module.exports = { init, generatePNR };

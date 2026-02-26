@@ -1,28 +1,18 @@
 const db = require('../config/database');
 
-function generatePnr(prefix = 'T') {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let pnr;
-  let exists = true;
-  while (exists) {
-    pnr = prefix + Date.now().toString(36).toUpperCase().slice(-6);
-    for (let i = 0; i < 3; i++) {
-      pnr += chars[Math.floor(Math.random() * chars.length)];
-    }
-    const row = db.prepare(
-      "SELECT 1 FROM passenger_bookings WHERE pnr = ? UNION SELECT 1 FROM parcel_bookings WHERE pnr = ?"
-    ).get(pnr, pnr);
-    exists = !!row;
-  }
-  return pnr;
+function generatePNR() {
+  const row = db.prepare(`
+    UPDATE pnr_counter SET last_pnr = last_pnr + 1 WHERE id = 1 RETURNING last_pnr
+  `).get();
+  return String(row.last_pnr);
 }
 
 function passengerPnr() {
-  return generatePnr('P');
+  return generatePNR();
 }
 
 function parcelPnr() {
-  return generatePnr('X');
+  return generatePNR();
 }
 
 module.exports = { passengerPnr, parcelPnr };
