@@ -27,6 +27,7 @@
           <th>Departure</th>
           <th>Fare</th>
           <th>Booked by</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -41,6 +42,13 @@
           <td><%= time12(p.departure_time) %></td>
           <td>Rs. <%= Number(p.total_fare).toFixed(2) %></td>
           <td><%= p.created_by_name %></td>
+          <td>
+            <a href="/bookings/<%= p.id %>/part-a" class="btn btn-sm" target="_blank">Part A</a>
+            <a href="/bookings/<%= p.id %>/part-b" class="btn btn-sm btn-ghost" target="_blank">Part B</a>
+            <form method="post" action="/bookings/<%= p.id %>/notify-whatsapp" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-ghost">Notify</button>
+            </form>
+          </td>
         </tr>
         <% }); %>
       </tbody>
@@ -67,6 +75,7 @@
           <th>Bus</th>
           <th>Status</th>
           <th>Booked by</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -81,6 +90,12 @@
           <td><%= p.bus_assigned || '—' %></td>
           <td><%- p.part_b_returned ? '<span class="badge success">Returned</span>' : '<span class="badge warning">Pending</span>' %></td>
           <td><%= p.created_by_name %></td>
+          <td>
+            <a href="/parcels/<%= p.id %>/part-b" class="btn btn-sm" target="_blank">Part B</a>
+            <form method="post" action="/parcels/<%= p.id %>/notify-whatsapp" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-ghost">Notify</button>
+            </form>
+          </td>
         </tr>
         <% }); %>
       </tbody>
